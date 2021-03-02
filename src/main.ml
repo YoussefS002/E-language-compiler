@@ -181,6 +181,7 @@ let _ =
       end;
 
       let compiler_res =
+        try
         pass_tokenize input >>= fun tokens ->
         pass_parse tokens >>= fun (ast, _) ->
         pass_elang ast >>= fun ep ->
@@ -200,6 +201,10 @@ let _ =
         pass_linear_dse linear lives >>= fun linear ->
         run "Linear after DSE" !linear_run_after_dse exec_linear_prog linear;
         pass_ltl_gen linear
+        with e ->
+          let emsg = Printexc.to_string e ^ "\n" ^ Printexc.get_backtrace () in
+          record_compile_result ~error:(Some emsg) "global";
+          Error emsg
       in
       begin
         match compiler_res with
