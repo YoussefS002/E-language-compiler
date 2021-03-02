@@ -23,4 +23,4 @@ clean:
 	make -C tests clean
 
 test: main.native
-	OCAMLRUNPARAM=b make -C tests
+	make -C tests

@@ -180,6 +180,7 @@ let _ =
         set_default ltl_dump basename ".ltl";
       end;
 
+      Printexc.record_backtrace true;
       let compiler_res =
         try
         pass_tokenize input >>= fun tokens ->
