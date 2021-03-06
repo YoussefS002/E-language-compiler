@@ -1,3 +1,5 @@
+include ../opts.mk
+
 SRC=archi.ml ast.ml builtins.ml config.ml cfg_constprop.ml cfg_dead_assign.ml	\
 cfg.ml cfg_print.ml cfg_gen.ml cfg_liveness.ml cfg_nop_elim.ml cfg_run.ml			\
 elang.ml elang_print.ml elang_gen.ml elang_run.ml e_regexp.ml									\
@@ -22,8 +24,8 @@ test_lexer: archi.ml config.ml e_regexp.ml lexer_generator.ml symbols.ml test_le
 	dot -Tsvg /tmp/dfa.dot -o /tmp/dfa.svg
 	dot -Tsvg /tmp/nfa.dot -o /tmp/nfa.svg
 
-config.ml: ../configure
-	cd .. && ./configure
+config.ml: ../configure ../opts.mk
+	cd .. && ./configure ${CONF_OPTS}
 
 clean:
 	rm -rf _build

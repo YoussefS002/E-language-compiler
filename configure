@@ -1,5 +1,35 @@
 #!/bin/bash
 
+LEX_HAND="true"
+ALPAGA_PARSER="true"
+
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+
+    case $key in
+        -l|--lex-hand)
+            LEX_HAND="true"
+            shift
+            ;;
+        -L|--lex-ocamllex)
+            LEX_HAND="false"
+            shift
+            ;;
+        -a|--alpaga-parser)
+            ALPAGA_PARSER="true"
+            shift
+            ;;
+        -m|--menhir-parser)
+            ALPAGA_PARSER="false"
+            shift
+            ;;
+        *)    # unknown option
+            shift # past argument
+            ;;
+    esac
+done
+
 RUNTIME=$(pwd)/runtime
 
 RVAS=$(which -a riscv64-unknown-linux-gnu-as riscv64-unknown-elf-as riscv64-linux-gnu-as 2>/dev/null | grep -v "not found" | head -n1)
@@ -14,4 +44,5 @@ echo "let qemu64 = \"${QEMU64}\"" >> src/config.ml
 echo "let rv_as = \"${RVAS}\"" >> src/config.ml
 echo "let rv_ld = \"${RVLD}\"" >> src/config.ml
 echo "let os_target = \"linux\"" >> src/config.ml
-
+echo "let lex_hand = $LEX_HAND" >> src/config.ml
+echo "let alpaga_parser = $ALPAGA_PARSER" >> src/config.ml

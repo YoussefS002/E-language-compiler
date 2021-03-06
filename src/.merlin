@@ -8,3 +8,4 @@ PKG batteries
 PKG yojson
 PKG websocket
 PKG websocket-lwt-unix
+PKG menhirLib

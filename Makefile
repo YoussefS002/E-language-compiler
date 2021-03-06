@@ -1,9 +1,11 @@
 all: main.native
 
+include opts.mk
+
 .PHONY: main.native
 
-src/config.ml: configure
-	./configure
+src/config.ml: configure opts.mk
+	./configure ${CONF_OPTS}
 
 main.native: src/config.ml
 	make -C alpaga

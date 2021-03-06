@@ -91,6 +91,8 @@ let speclist =
     ("-nostart", Arg.Set nostart, "Don't output _start code.");
     ("-nostats", Arg.Set nostats, "Don't output stats.");
     ("-nomul", Arg.Unit (fun _ -> has_mul := false), "Target architecture without mul instruction.");
+    ("-lex-hand", Arg.Unit (fun _ -> Options.handwritten_lexer := true), "Use handwritten lexer generator");
+    ("-lex-auto", Arg.Unit (fun _ -> Options.handwritten_lexer := false), "Use OCamlLex lexer");
     ("-linux", Arg.Unit (fun _ -> target := Linux), "emit linux syscalls");
     ("-xv6", Arg.Unit (fun _ -> target := Xv6), "emit xv6 syscalls");
     ("--", Arg.Rest (fun p -> params := int_of_string p::!params), "Run parameters.")
