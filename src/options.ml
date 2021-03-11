@@ -39,3 +39,4 @@ let naive_regalloc = ref true
 let rig_dump : string option ref = ref None
 let handwritten_lexer = ref Config.lex_hand
 let alpaga_parser = ref Config.alpaga_parser
+let timeout = ref 1.0
