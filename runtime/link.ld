@@ -4,7 +4,7 @@ heap_size = 0x2000;
 SECTIONS
 {
 /* text: test code section */
-. = 0x200;
+. = 0x2000000;
 .text :
 {
 *(.text)
