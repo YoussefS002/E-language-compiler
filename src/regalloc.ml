@@ -1,6 +1,4 @@
 open Batteries
-open BatList
-open BatEnum
 open Prog
 open Linear
 open Rtl
