@@ -1,9 +1,6 @@
 open Elang
 open Batteries
-open BatList
 open Prog
-open Utils
-open Builtins
 open Utils
 
 let binop_bool_to_int f x y = if f x y then 1 else 0
@@ -88,5 +85,5 @@ let eval_eprog oc (ep: eprog) (memsize: int) (params: int list)
   (* ne garde que le nombre nécessaire de paramètres pour la fonction "main". *)
   let n = List.length f.funargs in
   let params = take n params in
-  eval_efun oc st f "main" params >>= fun (v, st) ->
+  eval_efun oc st f "main" params >>= fun (v, _) ->
   OK v

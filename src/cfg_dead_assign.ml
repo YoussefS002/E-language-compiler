@@ -13,7 +13,7 @@ open Options
    function [f]. Cette fonction renvoie un couple [(f',c)] oú [f'] est la
    nouvelle fonction, et [c] est un booléen qui indique si du progrès a été
    fait. *)
-let dead_assign_elimination_fun ({ cfgfunargs; cfgfunbody; cfgentry } as f: cfg_fun) =
+let dead_assign_elimination_fun ({ cfgfunbody; _ } as f: cfg_fun) =
   let changed = ref false in
   let cfgfunbody =
     Hashtbl.map (fun (n: int) (m: cfg_node) ->

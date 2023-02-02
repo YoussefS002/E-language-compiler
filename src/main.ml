@@ -165,7 +165,7 @@ let _ =
   | Some input ->
     add_to_report "Source" "Source" (Code (file_contents input));
 
-    match Filename.chop_suffix_opt ".e" input with
+    match Filename.chop_suffix_opt ~suffix:".e" input with
       None -> failwith
                 (Format.sprintf "File (%s) should end in .e" input)
     | Some basename ->

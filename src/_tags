@@ -1,7 +1,0 @@
-true: debug
-true: bin_annot
-<runtime>: -traverse
-<*>: package(lwt lwt.unix logs logs.lwt batteries yojson websocket websocket-lwt-unix menhirLib)
-true: thread
-true: use_menhir, explain, table
-<tykernel>: -traverse

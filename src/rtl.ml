@@ -1,9 +1,6 @@
 open Batteries
-open BatList
 open Elang
 open Cfg
-open Utils
-open Prog
 
 type reg = int
 

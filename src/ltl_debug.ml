@@ -214,11 +214,11 @@ let debug_ltl_prog progname lp memsize params : unit=
   let st = ref (init_state memsize lp params) in
   let state = ref (None) in
   let breaks = ref [] in
-  let ctx = Conduit_lwt_unix.default_ctx in
+  let ctx = Lazy.force Conduit_lwt_unix.default_ctx in
   let uri = "http://localhost:8080" in
   let (pstop, rstop) = Lwt.task () in
   let server () =
-    Resolver_lwt.resolve_uri (Uri.of_string uri) Resolver_lwt_unix.system >>= fun endp ->
+    Resolver_lwt.resolve_uri ~uri:(Uri.of_string uri) Resolver_lwt_unix.system >>= fun endp ->
     Conduit_lwt_unix.endp_to_server ~ctx endp >>= fun server ->
     Websocket_lwt_unix.establish_server
       ~ctx ~mode:server

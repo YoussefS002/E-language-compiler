@@ -106,7 +106,7 @@ let cfg_gdef_of_edef gd =
     Gfun f -> cfg_fun_of_efun f >>= fun f -> OK (Gfun f)
 
 let cfg_prog_of_eprog (ep: eprog) : cfg_fun prog res =
-  assoc_map_res (fun fname -> cfg_gdef_of_edef) ep
+  assoc_map_res (fun _ -> cfg_gdef_of_edef) ep
 
 let pass_cfg_gen ep =
   match cfg_prog_of_eprog ep with

@@ -66,43 +66,43 @@ let keyword_regexp s = str_regexp (char_list_of_string s)
 (* La liste des expressions régulières permettant d'identifier les tokens du langage E *)
 let list_regexp : (regexp * (string -> token option)) list =
   [
-    (keyword_regexp "while",    fun s -> Some (SYM_WHILE));
-    (keyword_regexp "int", fun s -> Some (SYM_INT));
+    (keyword_regexp "while",    fun _ -> Some (SYM_WHILE));
+    (keyword_regexp "int", fun _ -> Some (SYM_INT));
     (* begin TODO *)
-    (Eps,       fun s -> Some (SYM_VOID));
-    (Eps,       fun s -> Some (SYM_CHAR));
-    (Eps,       fun s -> Some (SYM_IF));
-    (Eps,       fun s -> Some (SYM_ELSE));
-    (Eps,       fun s -> Some (SYM_RETURN));
-    (Eps,       fun s -> Some (SYM_PRINT));
-    (Eps,       fun s -> Some (SYM_STRUCT));
-    (Eps,       fun s -> Some (SYM_POINT));
-    (Eps,       fun s -> Some (SYM_PLUS));
-    (Eps,       fun s -> Some (SYM_MINUS));
-    (Eps,       fun s -> Some (SYM_ASTERISK));
-    (Eps,       fun s -> Some (SYM_DIV));
-    (Eps,       fun s -> Some (SYM_MOD));
-    (Eps,       fun s -> Some (SYM_LBRACE));
-    (Eps,       fun s -> Some (SYM_RBRACE));
-    (Eps,       fun s -> Some (SYM_LBRACKET));
-    (Eps,       fun s -> Some (SYM_RBRACKET));
-    (Eps,       fun s -> Some (SYM_LPARENTHESIS));
-    (Eps,       fun s -> Some (SYM_RPARENTHESIS));
-    (Eps,       fun s -> Some (SYM_SEMICOLON));
-    (Eps,       fun s -> Some (SYM_COMMA));
-    (Eps,       fun s -> Some (SYM_ASSIGN));
-    (Eps,       fun s -> Some (SYM_EQUALITY));
-    (Eps,       fun s -> Some (SYM_NOTEQ));
-    (Eps,       fun s -> Some (SYM_LT));
-    (Eps,       fun s -> Some (SYM_GT));
-    (Eps,       fun s -> Some (SYM_LEQ));
-    (Eps,       fun s -> Some (SYM_GEQ));
+    (Eps,       fun _ -> Some (SYM_VOID));
+    (Eps,       fun _ -> Some (SYM_CHAR));
+    (Eps,       fun _ -> Some (SYM_IF));
+    (Eps,       fun _ -> Some (SYM_ELSE));
+    (Eps,       fun _ -> Some (SYM_RETURN));
+    (Eps,       fun _ -> Some (SYM_PRINT));
+    (Eps,       fun _ -> Some (SYM_STRUCT));
+    (Eps,       fun _ -> Some (SYM_POINT));
+    (Eps,       fun _ -> Some (SYM_PLUS));
+    (Eps,       fun _ -> Some (SYM_MINUS));
+    (Eps,       fun _ -> Some (SYM_ASTERISK));
+    (Eps,       fun _ -> Some (SYM_DIV));
+    (Eps,       fun _ -> Some (SYM_MOD));
+    (Eps,       fun _ -> Some (SYM_LBRACE));
+    (Eps,       fun _ -> Some (SYM_RBRACE));
+    (Eps,       fun _ -> Some (SYM_LBRACKET));
+    (Eps,       fun _ -> Some (SYM_RBRACKET));
+    (Eps,       fun _ -> Some (SYM_LPARENTHESIS));
+    (Eps,       fun _ -> Some (SYM_RPARENTHESIS));
+    (Eps,       fun _ -> Some (SYM_SEMICOLON));
+    (Eps,       fun _ -> Some (SYM_COMMA));
+    (Eps,       fun _ -> Some (SYM_ASSIGN));
+    (Eps,       fun _ -> Some (SYM_EQUALITY));
+    (Eps,       fun _ -> Some (SYM_NOTEQ));
+    (Eps,       fun _ -> Some (SYM_LT));
+    (Eps,       fun _ -> Some (SYM_GT));
+    (Eps,       fun _ -> Some (SYM_LEQ));
+    (Eps,       fun _ -> Some (SYM_GEQ));
     (Eps,       fun s -> Some (SYM_IDENTIFIER s));
     (* end TODO *)
     (Cat(keyword_regexp "//",
          Cat(Star (char_range (List.filter (fun c -> c <> '\n') alphabet)),
              Alt (char_regexp '\n', Eps))),
-     fun s -> None);
+     fun _ -> None);
     (Cat(keyword_regexp "/*",
          Cat(
            Cat (Star (Alt (
@@ -111,7 +111,7 @@ let list_regexp : (regexp * (string -> token option)) list =
                     plus(char_range (List.filter (fun c -> c <> '/' && c <> '*') alphabet)))
              )), Star (char_range ['*'])),
            keyword_regexp "*/")),
-     fun s -> None);
+     fun _ -> None);
     (Cat (char_regexp '\'',
           Cat (char_range (List.filter (fun c -> c <> '\'' && c <> '\\') alphabet),
                char_regexp '\'')),
@@ -141,8 +141,8 @@ let list_regexp : (regexp * (string -> token option)) list =
             ),
                char_regexp '"')),
      fun s -> Some (SYM_STRING (Stdlib.Scanf.unescaped (String.slice ~first:1 ~last:(-1) s))));
-    (char_range (char_list_of_string " \t\n"), fun s -> None);
+    (char_range (char_list_of_string " \t\n"), fun _ -> None);
     (plus digit_regexp, fun s -> Some (SYM_INTEGER (int_of_string s)));
-    (Eps, fun s -> Some (SYM_EOF))
+    (Eps, fun _ -> Some (SYM_EOF))
   ]
 

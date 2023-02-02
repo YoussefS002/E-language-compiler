@@ -1,5 +1,4 @@
 open Batteries
-open BatPrintf
 open BatBuffer
 open BatList
 
@@ -131,18 +130,18 @@ module Mem : sig
   val write_log : t -> unit -> (int * int) list
 end = struct
   type t = int array * int list ref * (int * int) list ref
-  let write_bytes (m,rl,wl) addr bytes =
+  let write_bytes (m,_,wl) addr bytes =
     write_mem_bytes m addr bytes >>= fun w ->
     wl := w @ !wl; OK ()
-  let write_char (m,rl,wl) addr c =
+  let write_char (m,_,wl) addr c =
     write_mem_char m addr c >>= fun w -> wl := w @ !wl; OK ()
-  let read_bytes (m,rl,wl) addr len =
+  let read_bytes (m,rl,_) addr len =
     read_mem_bytes m addr len >>= fun (vl,addrl) ->
     rl := addrl @ !rl ; OK vl
-  let read_bytes_as_int (m,rl,wl) addr len =
+  let read_bytes_as_int (m,rl,_) addr len =
     read_mem_bytes_as_int m addr len >>= fun (v,addrl) ->
     rl := addrl @ !rl; OK v
-  let read_char (m,rl,wl) addr =
+  let read_char (m,rl,_) addr =
     read_mem_char m addr >>= fun (v,addrl) ->
     rl := addrl @ !rl; OK v
   let init n = Array.init n (fun _ -> 0), ref [], ref []
@@ -154,7 +153,7 @@ let assoc_opti k l =
   let rec aux l n =
     match l with
     | [] -> None
-    | (a,v)::l when a = k -> Some (n, v)
+    | (a,v)::_ when a = k -> Some (n, v)
     | _::l -> aux l (n+1)
   in
   aux l 0
@@ -169,7 +168,7 @@ let assoc_map_res f l =
       OK (acc@[(k,v)])
     ) (OK []) l
 
-let rec assoc_split fl fr l =
+let assoc_split fl fr l =
   let rec aux l (accl, accr) =
   match l with
   | [] -> (accl, accr)
@@ -339,7 +338,7 @@ let file_contents file =
       try
         let line = input_line ic in  (* read line from in_channel and discard \n *)
         aux (s ^ line ^ "\n") ()   (* close the input channel *)
-      with e ->                      (* some unexpected exception occurs *)
+      with _ ->                      (* some unexpected exception occurs *)
         close_in_noerr ic;           (* emergency closing *)
         s in
     aux "" ()

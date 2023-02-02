@@ -1,4 +1,4 @@
-OCB=ocamlbuild -use-ocamlfind -cflag -g
+#OCB=ocamlbuild -use-ocamlfind -cflag -g
 
 SRC=ml_parser_generator.ml \
 	grammar_parser.ml \
@@ -12,11 +12,9 @@ TG = alpaga
 
 all: $(TG)
 
-$(TG): ml_parser_generator.native
-	cp ml_parser_generator.native $(TG)
-
-ml_parser_generator.native: $(SRC)
-	$(OCB) ml_parser_generator.native
+$(TG): $(SRC)
+	dune build ml_parser_generator.exe
+	ln -sf _build/default/ml_parser_generator.exe alpaga
 
 clean:
 	rm -f ml_parser_generator.native $(TG)

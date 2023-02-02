@@ -6,13 +6,13 @@ FILES := $(if $(DIR),$(DIR),basic/*.e)
 OPTS := $(if $(OPTS), $(OPTS),)
 
 .PHONY: all
-all: ../main.native
+all: ../ecomp
 	./test.py -f $(FILES) $(OPTS)
 
-expect: ../main.native
+expect: ../ecomp
 	OCAMLRUNPARAM=b ./test.py --make-expect -f $(FILES) $(OPTS) --args 1 2 3
 	OCAMLRUNPARAM=b ./test.py --make-expect -f $(FILES) $(OPTS) --args 14 12 3 8 12
-	for f in $(FILES); do ../main.native -f $$f -show-tokens $$f.expect_lexer; done
+	for f in $(FILES); do ../ecomp -f $$f -show-tokens $$f.expect_lexer; done
 
 
 clean:

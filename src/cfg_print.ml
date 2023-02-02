@@ -2,7 +2,6 @@ open Batteries
 open Cfg
 open Elang_print
 open Prog
-open Utils
 
 let rec dump_cfgexpr : expr -> string = function
   | Ebinop(b, e1, e2) -> Format.sprintf "(%s %s %s)" (dump_cfgexpr e1) (dump_binop b) (dump_cfgexpr e2)
@@ -44,7 +43,7 @@ let dump_liveness_state oc ht state =
       flush_all ()
     ) ht
 
-let dump_cfg_fun oc cfgfunname ({ cfgfunargs; cfgfunbody; cfgentry; }: cfg_fun) =
+let dump_cfg_fun oc cfgfunname ({ cfgfunbody; cfgentry; _ }: cfg_fun) =
   Format.fprintf oc "subgraph cluster_%s {\n label=\"%s\";\n" cfgfunname cfgfunname;
   Hashtbl.iter (fun n node ->
       Format.fprintf oc "n_%s_%d [label=\"%a\" xlabel=\"%d\" shape=%s];\n" cfgfunname n dump_cfg_node node n (if n = cfgentry then "rectangle peripheries=2" else "rectangle");

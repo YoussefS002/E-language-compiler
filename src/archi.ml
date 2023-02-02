@@ -1,4 +1,3 @@
-open Config
 
 type archi = A64 | A32
 

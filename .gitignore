@@ -3,6 +3,7 @@ grammar.html
 src/generated_parser.ml
 src/config.ml
 **/*.native
+ecomp
 skeleton
 src/.vscode/
 .vscode/

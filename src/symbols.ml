@@ -1,6 +1,4 @@
-open BatPrintf
 open Batteries
-open Utils
 
 let string_of_position pos =
   let open Lexing in

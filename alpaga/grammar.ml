@@ -24,5 +24,6 @@ let dump_grammar oc (toks, nts, rules) =
   Printf.fprintf oc "\nnon-terminals ";
   List.iter (fun n -> Printf.fprintf oc " %s" n) nts;
   Printf.fprintf oc "\nrules\n";
-  List.iter (fun (n,lt,a) -> Printf.fprintf oc "%s ->%s\n" n (print_seq (fun x -> x) lt)) rules
+  List.iter (fun (n,lt,_) ->
+      Printf.fprintf oc "%s ->%s\n" n (print_seq (fun x -> x) lt)) rules
 

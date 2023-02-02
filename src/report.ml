@@ -25,18 +25,59 @@ let add_to_report id title content =
 
 let make_report filename report () =
   let html = open_out (filename ^ ".html") in
-  Printf.fprintf html "<ul id=\"top\">";
+  Printf.fprintf html "\
+<html>\n\
+    <head>\n\
+            <link rel=\"stylesheet\" href=\"https://www.w3schools.com/w3css/4/w3.css\">\n\
+    <script src=\"https://kit.fontawesome.com/1f5d81749b.js\" crossorigin=\"anonymous\"></script>\n\
+    <style type=\"text/css\">\n\
+    a.anchor {\n\
+      display: block; \
+      position: relative; \
+      left: -250px; \
+    visibility: hidden;\
+    }\n\
+    </style>\n\
+    </head>\n\
+    <body>\n\
+";
+  Printf.fprintf html "<div \
+                       class=\"w3-container w3-cell\" \
+                       style=\"position: fixed; z-index: 1; top: 0; bottom: 0; width: 250px; overflow-y: scroll;\"\
+                       >\n  <ul class=\"w3-ul\">\n";
+  let t = Unix.time () in
+  let tm = Unix.localtime t in
+  let open Unix in
+  Printf.fprintf html "<li>%02d/%02d/%04d - %02dh%02d</li>"
+    tm.tm_mday
+    (tm.tm_mon + 1)
+    (tm.tm_year + 1900)
+    tm.tm_hour
+    tm.tm_min
+  ;
+  Printf.fprintf html "  <li><a href=\"../results.html\"><i class=\"fa fa-home\"></i> Results</a></li>\n";
   List.iter
-    (fun { sect_id; sect_title  } ->
-       Printf.fprintf html "<li><a href=\"#%s\">%s</a></li>\n" sect_id sect_title
+    (fun { sect_id; sect_title; _ } ->
+       Printf.fprintf html "  <li><a href=\"#%s\">%s</a></li>\n" sect_id sect_title
     )
     !report;
-  Printf.fprintf html "</ul>";
+  Printf.fprintf html "</ul></div><div \
+                       class=\"w3-container w3-cell-row\" \
+                       style=\"margin-left: 250px;\"\
+                       ><a class=\"anchor\" id=\"top\"></a>";
   List.iter
     (fun { sect_id; sect_title; sect_content } ->
-       Printf.fprintf html "<fieldset><h3 id=\"%s\"><a href=\"#top\">&uarr;</a> %s</h3>%a</fieldset>\n" sect_id sect_title print_html sect_content
+       Printf.fprintf html "<fieldset>\n\
+                            <a class=\"anchor\" id=\"%s\"></a>\n\
+                            <h3><a href=\"#top\">&uarr;</a> %s</h3>\n\
+                            %a\n\
+                            </fieldset>\n" sect_id sect_title print_html sect_content
     )
     !report;
+  Printf.fprintf html "\
+</div>\n\
+</body>\n\
+</html>";
   close_out html;
   ()
 
@@ -109,7 +150,7 @@ let timeout (f: 'a -> 'b res) (arg: 'a) (time: float) : ('b * string) res =
         Marshal.to_channel oc (Error (Printf.sprintf "Timeout after %f seconds." time)) [];
         close_out oc;
         exit 0
-      | pid1 -> let ic = Unix.in_channel_of_descr pipe_r in
+      | _ -> let ic = Unix.in_channel_of_descr pipe_r in
         let result = Marshal.from_channel ic in
         result ))
 
@@ -146,7 +187,6 @@ let run step flag eval p =
 
 
 let json_output_string () =
-  let open Yojson in
   let jstring_of_ostring o =
     match o with
     | None -> `Null

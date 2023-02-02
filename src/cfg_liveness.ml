@@ -1,7 +1,5 @@
 open Batteries
 open Cfg
-open Prog
-open Utils
 
 (* Analyse de vivacité *)
 

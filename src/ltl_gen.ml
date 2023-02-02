@@ -325,7 +325,7 @@ let ltl_instrs_of_linear_instr fname live_out allocation
   | Rlabel l -> OK [LLabel (Format.sprintf "%s_%d" fname l)]
   in
   res >>= fun l ->
-  OK (LComment (Format.asprintf "#<span style=\"background: pink;\"><b>Linear instr</b>: %a #</span>" (Rtl_print.dump_rtl_instr fname (None, None)) ins)::l)
+  OK (LComment (Format.asprintf "#<span style=\"background: pink;\"><b>Linear instr</b>: %a #</span>" (Rtl_print.dump_rtl_instr fname (None, None) ~endl:"") ins)::l)
 
 (** Retrieves the location of the n-th argument (in the callee). The first 8 are
    passed in a0-a7, the next are passed on the stack. *)

@@ -1,7 +1,4 @@
-open Ast
-open Batteries
 open Prog
-open Utils
 
 type binop = Eadd | Emul | Emod | Exor | Ediv | Esub (* binary operations *)
            | Eclt | Ecle | Ecgt | Ecge | Eceq | Ecne (* comparisons *)

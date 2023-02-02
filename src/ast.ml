@@ -1,5 +1,4 @@
 open Batteries
-open BatPrintf
 
 (* Les AST sont des arbres, du type [tree], étiquetés par des [tag].
 
@@ -31,7 +30,7 @@ type tag = Tassign | Tif | Twhile | Tblock | Treturn | Tprint
          | Tlistglobdef
          | Tfundef | Tfunname | Tfunargs | Tfunbody
          | Tassignvar
-         | Targ 
+         | Targ
 
 type tree = | Node of tag * tree list
             | StringLeaf of string

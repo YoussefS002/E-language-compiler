@@ -1,3 +1,0 @@
-<.>: include
-true: package(str, batteries)
-true: use_menhir

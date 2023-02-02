@@ -1,0 +1,19 @@
+(menhir
+ (modules yaccparser)
+ (flags (--unused-tokens))
+  ; unused-tokens
+)
+(ocamllex lexer)
+
+(executable
+ (name main)
+ (libraries
+   batteries
+   yojson
+   lwt
+   websocket
+   websocket-lwt-unix
+   menhirLib
+ )
+ (flags (:standard -warn-error -A -w -27 -w -33 -w -9 -w -39))
+)

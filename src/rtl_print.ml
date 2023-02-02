@@ -17,7 +17,7 @@ let print_cmpop (r: rtl_cmp) =
   | Rceq -> "=="
   | Rcne -> "!=")
 
-let dump_rtl_instr name (live_in, live_out) oc (i: rtl_instr) =
+let dump_rtl_instr name (live_in, live_out) ?(endl="\n") oc (i: rtl_instr) =
   let print_node s = Format.sprintf "%s_%d" name s in
 
   let dump_liveness live where =
@@ -42,7 +42,7 @@ let dump_rtl_instr name (live_in, live_out) oc (i: rtl_instr) =
   | Rprint r -> Format.fprintf oc "print %s" (print_reg r)
   | Rlabel n -> Format.fprintf oc "%s_%d:" name n
   end;
-  Format.fprintf oc "\n";
+  Format.fprintf oc "%s" endl;
   dump_liveness live_out "after"
 
 let dump_rtl_node name lives =
@@ -52,6 +52,7 @@ let dump_rtl_node name lives =
            None -> (None, None)
          | Some (lin, lout) ->
            Hashtbl.find_option lin i, Hashtbl.find_option lout i)
+        ~endl:"\n"
     ) "" "" ""
 
 let dump_rtl_fun oc rtlfunname ({ rtlfunargs; rtlfunbody; rtlfunentry }: rtl_fun) =
