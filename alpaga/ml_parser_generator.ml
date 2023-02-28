@@ -25,8 +25,11 @@ let default_action (pl: string list) : string =
 let resolve_vars s =
   Str.global_replace (Str.regexp "\\$\\([0-9]+\\)") "p\\1" s
 
-let make_nt (table: string*string -> lltype list) (toks,nts,rules) oc n () =
-  Printf.fprintf oc "and parse_%s tokens () =\n" n;
+let make_nt (table: string*string -> lltype list) (toks,nts,rules) oc (n,ot) () =
+  let t = match ot with | None -> "_" | Some t -> t in
+  let type_annot = Printf.sprintf ": ((%s) * ((token*Lexing.position option) list)) res" t
+  in
+  Printf.fprintf oc "and parse_%s (tokens: ((token*Lexing.position option) list)) () %s=\n" n type_annot;
   Printf.fprintf oc " begin match tokens with\n";
   List.iteri
     (fun i t ->
@@ -41,48 +44,37 @@ let make_nt (table: string*string -> lltype list) (toks,nts,rules) oc n () =
               then Printf.fprintf oc "    eat_%s tokens >>= fun (p%d, tokens) ->\n" t (i + 1)
               else Printf.fprintf oc "    parse_%s tokens ()  >>= fun (p%d, tokens) ->\n" t (i+1))
            pl;
-         Printf.fprintf oc "\n" ;
-         Printf.fprintf oc " let res =\n" ;
-         (match act with
-          | Some act -> Printf.fprintf oc "    %s\n" (resolve_vars act)
-          | _ ->
-            Printf.fprintf oc "    %s\n" (resolve_vars (default_action pl))
-         );
-         Printf.fprintf oc " in OK (res, tokens)\n" ;
-         Printf.fprintf oc "end\n";
+         let act = match act with Some act -> act | _ -> default_action pl in
+         Printf.fprintf oc "    let res = %s in\n" (resolve_vars act);
+         Printf.fprintf oc "    OK (res, tokens)\n" ;
+         Printf.fprintf oc "  end\n";
     )
     toks;
   let expected = List.filter (fun t -> List.length (table (n,t)) > 0) toks in
-  Printf.fprintf oc "  | tokens -> \n";
-  Printf.fprintf oc " let got,lexpos = match tokens with [] -> \"EOF\",None | (symbol, lexpos) :: _ -> (string_of_symbol symbol, lexpos) in Error (\n";
-  Printf.fprintf oc "      (match lexpos with \n";
-  Printf.fprintf oc "      | Some lexpos -> Printf.sprintf \"At %%s, error while parsing %s\\n\" (string_of_position lexpos) \n" n;
+  Printf.fprintf oc "  | tokens ->\n";
+  Printf.fprintf oc " let got,lexpos =\n   match tokens with\n   [] -> \"EOF\",None\n     | (symbol, lexpos) :: _ -> (string_of_symbol symbol, lexpos)\n   in Error (\n";
+  Printf.fprintf oc "      (match lexpos with\n";
+  Printf.fprintf oc "      | Some lexpos -> Printf.sprintf \"At %%s, error while parsing %s\\n\" (string_of_position lexpos)\n" n;
   Printf.fprintf oc "      | None -> Printf.sprintf \"Error while parsing %s\\n\" )^\n" n;
-  Printf.fprintf oc "  Printf.sprintf \"Expected one of \"^\n";
-  begin
-    match expected with
-      [] -> Printf.fprintf oc "Printf.sprintf \"{}\" ^\n"
-    | a::r -> 
-      List.iteri (fun i t ->
-          Printf.fprintf oc "Printf.sprintf \"%s %%s\" (string_of_symbol default_%s)^\n" (if i = 0 then "{" else ",") t;
-        ) (a::r);
-      Printf.fprintf oc "Printf.sprintf \"}\" ^ \n"
-  end;
-  Printf.fprintf oc "  Printf.sprintf \" but got '%%s' instead.\\n\" got\n ^ ";
-  Printf.fprintf oc "  Printf.sprintf \" '%%s' \\n\" (String.concat \",\" (List.map (fun (x, _) -> string_of_symbol x) (List.take 10 tokens)))\n";
+  Printf.fprintf oc "      Printf.sprintf \"Expected one of {%%s}\"\n";
+  Printf.fprintf oc "        (String.concat \", \" (List.map string_of_symbol [%s])) ^\n"
+    (String.concat ";" (List.map (fun s -> "default_"^s) expected)) ;
+  Printf.fprintf oc "      Printf.sprintf \" but got '%%s' instead.\\n\" got\n ^ ";
+  Printf.fprintf oc "      Printf.sprintf \" '%%s' \\n\" (String.concat \",\" (List.map (fun (x, _) -> string_of_symbol x) (List.take 10 tokens)))\n";
   Printf.fprintf oc "  )";
   Printf.fprintf oc "\n  end\n\n"
 
 let make_parser  (table: string*string -> lltype list)
     (toks,nts,rules,mlcode)
     (typ: (tokent * string) list)
+    (nttyp: (nonterm * string) list)
     oc () =
   Stdlib.Option.iter (fun mlcode -> Printf.fprintf oc "\n\n%s\n\n" mlcode) mlcode;
   List.iter (fun t ->
       begin match List.assoc_opt t typ with
         | Some ty ->
           begin
-            Printf.fprintf oc "let is_%s = function \n" t;
+            Printf.fprintf oc "let is_%s = function\n" t;
             Printf.fprintf oc " | %s _ -> true\n" t;
             Printf.fprintf oc " | _ -> false\n";
 
@@ -96,7 +88,7 @@ let make_parser  (table: string*string -> lltype list)
                 )
           end
         | None -> begin
-            Printf.fprintf oc "let is_%s = function \n" t;
+            Printf.fprintf oc "let is_%s = function\n" t;
             Printf.fprintf oc " | %s -> true\n" t;
             Printf.fprintf oc " | _ -> false\n";
             Printf.fprintf oc "let default_%s = %s\n" t t
@@ -104,23 +96,23 @@ let make_parser  (table: string*string -> lltype list)
       end;
     ) toks;
   List.iter (fun t ->
-      Printf.fprintf oc "let eat_%s = function \n" t;
+      Printf.fprintf oc "let eat_%s = function\n" t;
       begin match List.assoc_opt t typ with
         | Some _ -> Printf.fprintf oc "| (%s(x),_) :: rtokens -> OK (x, rtokens)\n" t
         | None -> Printf.fprintf oc "| (%s,_) :: rtokens -> OK ((), rtokens)\n" t
       end;
-      Printf.fprintf oc "|   (x,Some pos) :: _ -> Error (Printf.sprintf \"At position %%s, expected %%s, got %%s.\\n\"";
-      Printf.fprintf oc "    (string_of_position pos)";
-      Printf.fprintf oc "    (string_of_symbol default_%s)" t;
-      Printf.fprintf oc "    (string_of_symbol x))";
-      Printf.fprintf oc "    | (x,None) :: _ -> Error (Printf.sprintf \"Expected %%s, got %%s.\\n\"";
-      Printf.fprintf oc "    (string_of_symbol default_%s)" t;
-      Printf.fprintf oc "    (string_of_symbol x))";
+      Printf.fprintf oc "|   (x,Some pos) :: _ -> Error (Printf.sprintf \"At position %%s, expected %%s, got %%s.\\n\"\n";
+      Printf.fprintf oc "    (string_of_position pos)\n";
+      Printf.fprintf oc "    (string_of_symbol default_%s)\n" t;
+      Printf.fprintf oc "    (string_of_symbol x))\n";
+      Printf.fprintf oc "    | (x,None) :: _ -> Error (Printf.sprintf \"Expected %%s, got %%s.\\n\"\n";
+      Printf.fprintf oc "    (string_of_symbol default_%s)\n" t;
+      Printf.fprintf oc "    (string_of_symbol x))\n";
       Printf.fprintf oc "    | _ -> Error  (Printf.sprintf \"Expected %%s, got EOF.\\n\" (string_of_symbol default_%s))\n" t;
 
     ) toks;
-  Printf.fprintf oc "let rec ____unused = () \n";
-  List.iter (fun n -> make_nt table (toks,nts,rules) oc n ()) nts
+  Printf.fprintf oc "let rec ____unused = ()\n";
+  List.iter (fun n -> make_nt table (toks,nts,rules) oc (n, List.assoc_opt n nttyp) ()) nts
 
 let nts_ordered start (toks,nts,rules) =
   let nts =
@@ -185,6 +177,11 @@ let _ =
               | None -> None
               | Some typ -> Some (t,typ)
             ) gram.tokens)
+         (List.filter_map (fun (t,o) ->
+              match o with
+              | None -> None
+              | Some typ -> Some (t,typ)
+            ) gram.nonterms)
          oc ();
        close_out oc
     )

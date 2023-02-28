@@ -11,7 +11,7 @@ type rule = { rule_nt: nonterm;
             }
 
 type grammar = { tokens: (tokent * string option) list;
-                 nonterms: nonterm list;
+                 nonterms: (nonterm * string option) list;
                  rules: rule list;
                  mlcode: string option;
                  axiom: nonterm option

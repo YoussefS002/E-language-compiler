@@ -188,7 +188,10 @@ class CommandExecutor(Thread):
                                icon_ko,
                                self.filename,
                                r['compstep'], err)
-
+                elif r["compstep"] == "Parsing":
+                    compstep_td = """
+                    <td class="good">{}</td>
+                    """.format(icon_ok)
                 elif r["compstep"] == "Lexing":
                     expect_lex_file_name = self.filename + ".expect_lexer"
                     out_lex_file_name = self.filename[:-2] + ".lex"
@@ -321,7 +324,8 @@ def main():
         exec_thread = CommandExecutor(fname, cmd,
                                       args.args, args.make_expect,
                                       # 1 colonne pour le lexer
-                                      len(args.passes) + 1)
+                                      # 1 colonne pour le parser
+                                      len(args.passes) + 2)
         threads.append(exec_thread)
         exec_thread.start()
 
@@ -400,7 +404,7 @@ def main():
     res_html.write("""
     <table class="w3-table w3-striped w3-responsive">
     <tr><th>File</th>""")
-    for pass_name in ["Lexer"] + args.passes:
+    for pass_name in ["Lexer","Parser"] + args.passes:
         res_html.write("<th style='transform: rotate(180deg); writing-mode: vertical-rl;'>{}</th>\n".format(pass_name))
     res_html.write("""
     </tr>

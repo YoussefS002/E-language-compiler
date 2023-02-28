@@ -13,9 +13,8 @@ rule token = parse
   | "/*" { comment_multiline lexbuf }
   | '\n' { Lexing.new_line lexbuf; EOL }
   | '{' { action 0 "" lexbuf }
+  | '<' { ttype "" lexbuf }
   | "->" { ARROW }
-  | ">" { GT }
-  | "<" { LT }
   | "axiom" { AXIOM }
   | "tokens" { TOK }
   | "non-terminals" { NT }
@@ -29,8 +28,12 @@ rule token = parse
 and action level s = parse
   | '}' { if level = 0 then CODE s else action (level-1) (s ^ "}") lexbuf }
   | '{' { action (level + 1) (s ^ "{") lexbuf }
-  | _ as x { if x == '\n' then Lexing.new_line lexbuf;
+  | _ as x { if x = '\n' then Lexing.new_line lexbuf;
              action level (Printf.sprintf "%s%c" s x) lexbuf }
+and ttype s = parse
+  | '>' { TTYPE s }
+  | _ as x { if x = '\n' then Lexing.new_line lexbuf;
+             ttype (Printf.sprintf "%s%c" s x) lexbuf }
 and comment = parse
   | '\n' { Lexing.new_line lexbuf; token lexbuf }
   | _ { comment lexbuf }

@@ -26,7 +26,7 @@ let parse_grammar file : grammar * nonterm =
         List.fold_left
           (fun (undef, used) prod ->
              let undef =
-               if not (List.mem prod (List.map fst gram.tokens) || List.mem prod gram.nonterms || List.mem prod undef)
+               if not (List.mem_assoc prod gram.tokens || List.mem_assoc prod gram.nonterms || List.mem prod undef)
                then prod::undef
                else undef in
              let used =
@@ -46,7 +46,7 @@ let parse_grammar file : grammar * nonterm =
   | Some axiom ->
 
     (* Warn if some non terminals are never seen on the right hand side of a rule. *)
-    let unused_nts = List.filter (fun nt -> not (List.mem nt used_strings) && Some nt <> gram.axiom) gram.nonterms in
+    let unused_nts = List.filter (fun nt -> not (List.mem nt used_strings) && Some nt <> gram.axiom) (List.map fst gram.nonterms) in
     if unused_nts <> [] then Printf.printf "The following non-terminals are declared but never appear on the right hand-side of a rule:\n%a\n" print_list unused_nts;
 
     (* Warn if some tokens are never seen on the right hand side of a rule. *)
@@ -59,5 +59,5 @@ let parse_grammar file : grammar * nonterm =
         match Hashtbl.find_opt h r.rule_nt with
         | None -> Hashtbl.add h r.rule_nt [r]
         | Some lp -> Hashtbl.replace h r.rule_nt (lp@[r]) ) (gram.rules);
-    let rules = List.concat (List.map (fun n -> hashget_def h n []) gram.nonterms) in
+    let rules = List.concat (List.map (fun n -> hashget_def h n []) (List.map fst gram.nonterms)) in
     { gram with rules = rules }, axiom

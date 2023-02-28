@@ -4,6 +4,33 @@ open Batteries
 open Utils
 open Symbols
 
+let nfa_accepts (n: nfa) (w: char list) : bool =
+  let rec trav vis s =
+    if Set.mem s vis then vis
+    else let en = List.filter_map (fun (oa, n) -> if oa = None then Some n else None) (n.nfa_step s) in
+      List.fold_left trav (Set.add s vis) en in
+  let ec s = trav Set.empty s in
+  let ecs ls = Set.fold (fun q -> Set.union (ec q)) ls Set.empty in
+
+  let rec walk (q: int set) (w: char list) =
+    let q = ecs q in
+    match w with
+    | [] -> Set.exists (fun q -> List.mem q (List.map fst n.nfa_final)) q
+    | c::w ->
+      let q' =
+        Set.fold Set.union (Set.map (fun q ->
+            (List.filter_map
+               (fun (cso,q') ->
+                  match cso with
+                  | None -> None
+                  | Some cs -> if Set.mem c cs then Some q' else None
+               )
+               (n.nfa_step q)) |> Set.of_list
+          ) q) Set.empty
+
+      in walk q' w in
+  walk (Set.of_list n.nfa_initial) w
+
 let () =
   let regexp_list = [
     (keyword_regexp "while",    fun s -> Some (SYM_WHILE));
@@ -110,5 +137,54 @@ let () =
 
   let table = Hashtbl.create 10 in
   build_dfa_table table n (dfa_initial_state n);
-  expect_set_set "dfa states" (Hashtbl.keys table |> Set.of_enum) (Set.of_list [Set.of_list [1;2;3]; Set.of_list [2;4]; Set.of_list [2]])
+  expect_set_set "dfa states" (Hashtbl.keys table |> Set.of_enum) (Set.of_list [Set.of_list [1;2;3]; Set.of_list [2;4]; Set.of_list [2]]);
 
+  let expect_nfa_accepts n s b =
+    let r = nfa_accepts n (char_list_of_string s) in
+    if r = b
+    then Printf.printf "[OK] nfa_accepts %s = %b\n" s r
+    else Printf.printf "[KO] nfa_accepts %s = %b\n" s r
+  in
+
+  Printf.printf "*** NFA n1 : 'hello'\n";
+  let n1, f1 = nfa_of_regexp (keyword_regexp "hello") 1 (fun _ -> None) in
+  expect_nfa_accepts n1 "hello" true;
+  expect_nfa_accepts n1 "bonjour" false;
+
+  Printf.printf "*** NFA n2 : 'bonjour'\n";
+  let n2, f2 = nfa_of_regexp (keyword_regexp "bonjour") f1 (fun _ -> None) in
+  expect_nfa_accepts n2 "hello" false;
+  expect_nfa_accepts n2 "bonjour" true;
+
+  Printf.printf "*** NFA n3 : n1 | n2\n";
+  let n3 = alt_nfa n1 n2 in
+  expect_nfa_accepts n3 "hello" true;
+  expect_nfa_accepts n3 "bonjour" true;
+  expect_nfa_accepts n2 "buongiorno" false;
+
+  Printf.printf "*** NFA n4 : n1 . n2 \n";
+  let n4 = cat_nfa n1 n2 in
+  expect_nfa_accepts n4 "hello" false;
+  expect_nfa_accepts n4 "bonjour" false;
+  expect_nfa_accepts n4 "hellobonjour" true;
+  expect_nfa_accepts n4 "bonjourhello" false;
+
+  Printf.printf "*** NFA n5 : n1* \n";
+  let n5 = star_nfa n1 (fun _ -> None) in
+  expect_nfa_accepts n5 "" true;
+  expect_nfa_accepts n5 "hello" true;
+  expect_nfa_accepts n5 "hellohello" true;
+  expect_nfa_accepts n5 "hellobonjour" false;
+
+  Printf.printf "*** NFA n6 : n3* \n";
+  let n6 = star_nfa n3 (fun _ -> None) in
+  expect_nfa_accepts n6 "" true;
+  expect_nfa_accepts n6 "hello" true;
+  expect_nfa_accepts n6 "hellohello" true;
+  expect_nfa_accepts n6 "hellobonjour" true;
+  expect_nfa_accepts n6 "hellobonjourhello" true;
+  expect_nfa_accepts n6 "bonjourbonjourbonjourhello" true;
+  expect_nfa_accepts n6 "bonjlo" false;
+
+
+  ignore f2
