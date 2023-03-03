@@ -47,6 +47,7 @@ let nop_transitions_closed cfgfunbody =
 (* [replace_succ nop_succs s] donne le nouveau nom du nœud [s], en utilisant la
    liste [nop_succs] (telle que renvoyée par [nop_transitions_closed]). *)
 let replace_succ nop_succs s =
+   (* TODO *)
    s
 
 (* [replace_succs nop_succs n] remplace le nœud [n] par un nœud équivalent où on

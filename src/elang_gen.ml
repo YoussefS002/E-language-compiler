@@ -58,6 +58,7 @@ let rec make_eexpr_of_ast (a: tree) : expr res =
 let rec make_einstr_of_ast (a: tree) : instr res =
   let res =
     match a with
+    (* TODO *)
     | _ -> Error (Printf.sprintf "Unacceptable ast in make_einstr_of_ast %s"
                     (string_of_ast a))
   in
