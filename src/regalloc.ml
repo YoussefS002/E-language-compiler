@@ -175,7 +175,7 @@ let pick_spilling_candidate (rig : (reg, reg Set.t) Hashtbl.t)  : reg option =
    None
 
 (* [make_stack rig stack ncolors] construit la pile, selon l'algorithme vu en
-   cours (slides 60 à 63 du cours "Allocation de registres - Autres slides"
+   cours (slide 26 du cours "Allocation de registres"
    présent sur Edunao.) *)
 let rec make_stack (rig : (reg, reg Set.t) Hashtbl.t)  (stack : regalloc_decision list) (ncolors: int) : regalloc_decision list =
    (* TODO *)
