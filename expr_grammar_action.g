@@ -31,11 +31,11 @@ axiom S
 
 rules
 S -> FUNDEFS SYM_EOF { Node(Tlistglobdef, $1) }
-FUNDEFS -> FUNDEF FUNDEFS { Node(Tfundef, $1)::$2 }
+FUNDEFS -> FUNDEF FUNDEFS { $1::$2 }
 FUNDEFS -> { [] }
-FUNDEF -> IDENTIFIER SYM_LPARENTHESIS LPARAMS SYM_RPARENTHESIS INSTR { [Node(Tfunname, [$1]); Node(Tfunargs, $3); Node(Tfunbody, [$5])] }
+FUNDEF -> IDENTIFIER SYM_LPARENTHESIS LPARAMS SYM_RPARENTHESIS INSTR { Node(Tfundef, [Node(Tfunname, [$1]); Node(Tfunargs, $3); Node(Tfunbody, [$5])]) }
 
-LPARAMS -> IDENTIFIER REST_PARAMS { $1::$2 }
+LPARAMS -> IDENTIFIER REST_PARAMS { Node(Targ, [$1])::$2 }
 LPARAMS -> { [] }
 REST_PARAMS -> SYM_COMMA LPARAMS { $2 }
 REST_PARAMS -> { [] }
