@@ -20,13 +20,68 @@ axiom S
   open Batteries
   open Utils
 
+
   (* TODO *)
-  let resolve_associativity term other =
+  let rec resolve_associativity (term : tree) (other : (tag * tree) list) =
        (* TODO *)
-    term
-
-
+      match List.rev other with
+      | [] -> term
+      | (high_tag, right_side)::rest -> Node(high_tag, [resolve_associativity term (List.rev rest); right_side])
 }
 
 rules
-S -> FUNDEFS SYM_EOF {  Node (Tlistglobdef, []) }
+S -> FUNDEFS SYM_EOF { Node(Tlistglobdef, $1) }
+FUNDEFS -> FUNDEF FUNDEFS { Node(Tfundef, $1)::$2 }
+FUNDEFS -> { [] }
+FUNDEF -> IDENTIFIER SYM_LPARENTHESIS LPARAMS SYM_RPARENTHESIS SYM_LBRACE LINSTRS SYM_RBRACE { [Node(Tfunname, [$1]); Node(Tfunargs, $3); Node(Tfunbody, [$6])] }
+
+LPARAMS -> IDENTIFIER REST_PARAMS { $1::$2 }
+LPARAMS -> { [] }
+REST_PARAMS -> SYM_COMMA LPARAMS { $2 }
+REST_PARAMS -> { [] }
+
+LINSTRS -> INSTR INSTRS { Node(Tblock, $1::$2) }
+LINSTRS -> { NullLeaf }
+INSTRS -> INSTR INSTRS { $1::$2 }
+INSTRS -> { [] }
+
+INSTR -> SYM_IF SYM_LPARENTHESIS EXPR SYM_RPARENTHESIS SYM_LBRACE LINSTRS SYM_RBRACE ELSE { Node(Tif, [$3; $6; $8]) }
+INSTR -> SYM_WHILE SYM_LPARENTHESIS EXPR SYM_RPARENTHESIS SYM_LBRACE LINSTRS SYM_RBRACE { Node(Twhile, [$3; $6]) }
+INSTR -> SYM_RETURN EXPR SYM_SEMICOLON { Node(Treturn, [$2]) }
+INSTR -> SYM_PRINT SYM_LPARENTHESIS EXPR SYM_RPARENTHESIS SYM_SEMICOLON { Node(Tprint, [$3]) }
+INSTR -> IDENTIFIER SYM_ASSIGN EXPR SYM_SEMICOLON { Node(Tassign, [$1; $3]) }
+
+ELSE -> SYM_ELSE SYM_LBRACE LINSTRS SYM_RBRACE { $3 }
+ELSE -> { NullLeaf }
+
+EXPR -> EQ_EXPR EQ_EXPRS { resolve_associativity $1 $2 }
+EQ_EXPR -> CMP_EXPR CMP_EXPRS { resolve_associativity $1 $2 }
+CMP_EXPR -> ADD_EXPR ADD_EXPRS { resolve_associativity $1 $2 }
+ADD_EXPR -> MUL_EXPR MUL_EXPRS { resolve_associativity $1 $2 }
+MUL_EXPR -> FACTOR { $1 }
+
+EQ_EXPRS -> SYM_EQUALITY EQ_EXPR EQ_EXPRS { (Tceq, $2)::$3 } 
+EQ_EXPRS -> SYM_NOTEQ EQ_EXPR EQ_EXPRS { (Tne, $2)::$3 } 
+EQ_EXPRS -> { [] } 
+
+CMP_EXPRS -> SYM_LT CMP_EXPR CMP_EXPRS { (Tclt, $2)::$3 } 
+CMP_EXPRS -> SYM_LEQ CMP_EXPR CMP_EXPRS { (Tcle, $2)::$3 } 
+CMP_EXPRS -> SYM_GT CMP_EXPR CMP_EXPRS { (Tcgt, $2)::$3 }
+CMP_EXPRS -> SYM_GEQ CMP_EXPR CMP_EXPRS { (Tcge, $2)::$3 } 
+CMP_EXPRS -> { [] } 
+
+ADD_EXPRS -> SYM_PLUS ADD_EXPR ADD_EXPRS { (Tadd, $2)::$3 } 
+ADD_EXPRS -> SYM_MINUS ADD_EXPR ADD_EXPRS { (Tsub, $2)::$3 }
+ADD_EXPRS -> { [] } 
+
+MUL_EXPRS -> SYM_ASTERISK MUL_EXPR MUL_EXPRS { (Tmul, $2)::$3 }
+MUL_EXPRS -> SYM_DIV MUL_EXPR MUL_EXPRS { (Tdiv, $2)::$3 } 
+MUL_EXPRS -> SYM_MOD MUL_EXPR MUL_EXPRS { (Tmod, $2)::$3 } 
+MUL_EXPRS -> { [] }
+
+FACTOR -> INTEGER { $1 }
+FACTOR -> IDENTIFIER { $1 }
+FACTOR -> SYM_LPARENTHESIS EXPR SYM_RPARENTHESIS { $2 }
+
+IDENTIFIER -> SYM_IDENTIFIER {StringLeaf $1}
+INTEGER -> SYM_INTEGER {IntLeaf $1}
