@@ -9,17 +9,46 @@ let binop_bool_to_int f x y = if f x y then 1 else 0
    et [y]. *)
 let eval_binop (b: binop) : int -> int -> int =
   match b with
-   | _ -> fun x y -> 0
+   | Eadd -> fun x y -> x + y
+   | Emul -> fun x y -> x * y
+   | Emod -> fun x y -> x mod y
+   | Exor -> fun x y -> x lxor y
+   | Ediv -> fun x y -> x / y
+   | Esub -> fun x y -> x - y
+   | Eclt -> fun x y -> if x < y then 1 else 0
+   | Ecle -> fun x y -> if x <= y then 1 else 0
+   | Ecgt -> fun x y -> if x > y then 1 else 0
+   | Ecge -> fun x y -> if x >= y then 1 else 0
+   | Eceq -> fun x y -> if x = y then 1 else 0
+   | Ecne -> fun x y -> if x != y then 1 else 0
+
 
 (* [eval_unop u x] évalue l'opération unaire [u] sur l'argument [x]. *)
 let eval_unop (u: unop) : int -> int =
   match u with
-   | _ -> fun x -> 0
+   | Eneg -> fun x -> -x
 
 (* [eval_eexpr st e] évalue l'expression [e] dans l'état [st]. Renvoie une
    erreur si besoin. *)
 let rec eval_eexpr st (e : expr) : int res =
-   Error "eval_eexpr not implemented yet."
+   match e with
+   | Eint i -> OK i
+   | Evar s -> 
+      (match Hashtbl.find_option st.env s with
+      | Some i -> OK i
+      | None -> Error "Variable is not defined")
+   | Ebinop (b, ex, ey) -> 
+      (let res_x = eval_eexpr st ex
+         in let res_y = eval_eexpr st ey
+            in match res_x, res_y with
+            | Error msg, _ -> Error msg
+            | _, Error msg -> Error msg
+            | OK x, OK y -> OK (eval_binop b x y))
+   | Eunop (u, ex) ->
+      (let res_x = eval_eexpr st ex
+         in match res_x with
+         | Error msg -> Error msg
+         | OK x -> OK (eval_unop u x ))
 
 (* [eval_einstr oc st ins] évalue l'instrution [ins] en partant de l'état [st].
 
@@ -35,7 +64,50 @@ let rec eval_eexpr st (e : expr) : int res =
    - [st'] est l'état mis à jour. *)
 let rec eval_einstr oc (st: int state) (ins: instr) :
   (int option * int state) res =
-   Error "eval_einstr not implemented yet."
+   match ins with
+   | Iassign (s, e) -> 
+      (match eval_eexpr st e with
+         | Error msg -> Error msg
+         | OK v -> 
+            let replace st s v =
+                  let new_env = Hashtbl.copy st.env 
+                     in Hashtbl.replace new_env s v; 
+                        {st with env = new_env}  
+               in OK (None, replace st s v))
+   | Iif (e, i1, i2) -> 
+      (match eval_eexpr st e with 
+      | Error msg -> Error msg
+      | OK v -> if v=1 then eval_einstr oc st i1 else eval_einstr oc st i2)
+   | Iwhile (e, i) -> 
+      (match eval_eexpr st e with
+         | Error msg -> Error msg
+         | OK v ->
+            if v=1 
+               then (let res_i = eval_einstr oc st i
+                  in match res_i with
+                  | Error msg -> Error msg
+                  | OK (r_opt, next_st) -> match r_opt with 
+                     | None -> eval_einstr oc next_st (Iwhile (e, i))
+                     | Some r -> OK (r_opt, next_st)) 
+               else OK(None, st))
+   | Iblock i_list -> 
+      (match i_list with
+      | [] -> OK (None, st)
+      | i::rest -> 
+         match eval_einstr oc st i with
+         | Error msg -> Error msg
+         | OK (Some r, next_st) -> OK (Some r, next_st)
+         | OK (None, next_st) -> eval_einstr oc next_st (Iblock rest))
+   | Ireturn e -> 
+      (match eval_eexpr st e with
+      | Error msg -> Error msg
+      | OK v -> OK(Some v, st))  
+   | Iprint e -> 
+      (match eval_eexpr st e with
+      | Error msg -> Error msg
+      | OK v -> 
+         Format.fprintf oc "%d\n" v;
+         OK(None, st))
 
 (* [eval_efun oc st f fname vargs] évalue la fonction [f] (dont le nom est
    [fname]) en partant de l'état [st], avec les arguments [vargs].

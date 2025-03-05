@@ -6,7 +6,7 @@ type unop = Eneg
 
 type expr =
     Ebinop of binop * expr * expr
-  | Eunop of unop * expr
+  | Eunop of unop * expr (*unused*)
   | Eint of int
   | Evar of string
 
