@@ -66,6 +66,7 @@ let replace_succs nop_succs (n: cfg_node) =
    | Cassign (s, e, i) -> Cassign (s, e, replace_succ nop_succs i)
    | Cprint (e, i) -> Cprint (e, replace_succ nop_succs i)
    | Ccmp (e, i1, i2) -> Ccmp (e, replace_succ nop_succs i1, replace_succ nop_succs i2)
+   | Cnop i -> Cnop (replace_succ nop_succs i)
    | _ -> n
 
 (* [nop_elim_fun f] applique la fonction [replace_succs] à chaque nœud du CFG. *)
@@ -79,13 +80,18 @@ let nop_elim_fun ({ cfgfunargs; cfgfunbody; cfgentry } as f: cfg_fun) =
      (inaccessibles), et appliquer la fonction [replace_succs] aux nœuds qui
      resteront.
   *)
-  let cfgfunbody = Hashtbl.filter_map (fun n node ->
          (* TODO *)
-         if Set.is_empty (preds cfgfunbody n) && n!=cfgentry then None else Some (replace_succs nop_transf node)
-    ) cfgfunbody in
+   let cfgfunbody_corr_links = Hashtbl.map (fun n node ->
+      replace_succs nop_transf node
+   ) cfgfunbody
+   in let cfgfunbody_wout_inacc = Hashtbl.filter_map (fun n node ->
+      match node with
+      | Cnop i -> None
+      | _ -> if Set.is_empty (preds cfgfunbody_corr_links n) && n!=cfgentry then None else Some node
+   ) cfgfunbody_corr_links in
   (* La fonction renvoyée est composée du nouveau [cfgfunbody] que l'on vient de
      calculer, et le point d'entrée est transformé en conséquence. *)
-  {f with cfgfunbody; cfgentry = replace_succ nop_transf cfgentry }
+  {f with cfgfunbody=cfgfunbody_wout_inacc; cfgentry = replace_succ nop_transf cfgentry }
 
 let nop_elim_gdef gd =
   match gd with
