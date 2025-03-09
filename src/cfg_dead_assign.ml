@@ -14,22 +14,25 @@ open Options
    nouvelle fonction, et [c] est un booléen qui indique si du progrès a été
    fait. *)
 let dead_assign_elimination_fun ({ cfgfunbody; _ } as f: cfg_fun) =
-  let changed = ref false in
-  let cfgfunbody =
-    Hashtbl.map (fun (n: int) (m: cfg_node) ->
-        match m with
-           (* TODO *)
-        | _ -> m
-      ) cfgfunbody in
-  ({ f with cfgfunbody }, !changed )
+  let changed = ref false 
+    in let lives_in = live_cfg_fun f 
+      in let lives_out n = live_after_node cfgfunbody n lives_in
+        in let cfgfunbody =
+        Hashtbl.map (fun (n: int) (m: cfg_node) ->
+            match m with
+              (* TODO *)
+            | Cassign (s, e, i) -> if (Set.mem s (lives_out n)) then m else (changed := true; Cnop i)
+            | _ -> m
+          ) cfgfunbody
+          in ({ f with cfgfunbody }, !changed )
 
 (* Applique l'élimination de code mort autant de fois que nécessaire. Testez
    notamment sur le fichier de test [basic/useless_assigns.e]. *)
 let rec iter_dead_assign_elimination_fun f =
   let f, c = dead_assign_elimination_fun f in
-   (* TODO *)
-   f
-
+    (* TODO *)
+    if c then iter_dead_assign_elimination_fun f else f
+    
 let dead_assign_elimination_gdef = function
     Gfun f -> Gfun (iter_dead_assign_elimination_fun f)
 
