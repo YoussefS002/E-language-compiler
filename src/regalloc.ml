@@ -55,7 +55,7 @@ let regalloc_on_stack_fun (f: linear_fun) : ((reg, loc) Hashtbl.t * int)=
    avec le registre-clé. Cela correspond à la relation d'adjacence dans le
    graphe d'interférence. *)
 
-(* La fonction [add_to_interf rig x y] ajoute [y] à la liste des registres qui
+(* La fonction [add_to_interf rig x y] ajoute [y] à la liste des regiNosstres qui
    interfèrent avec [x] dans le graphe [rig].
 
    On pourra utiliser la fonction [Hashtbl.modify_def] qui permet de modifier la
@@ -79,7 +79,8 @@ let regalloc_on_stack_fun (f: linear_fun) : ((reg, loc) Hashtbl.t * int)=
 
 let add_interf (rig : (reg, reg Set.t) Hashtbl.t) (x: reg) (y: reg) : unit =
     (* TODO *)
-    ()
+    Hashtbl.modify_def Set.empty x (Set.add y) rig;
+    Hashtbl.modify_def Set.empty y (Set.add x) rig
 
 
 (* [make_interf_live rig live] ajoute des arcs dans le graphe d'interférence
@@ -89,7 +90,7 @@ let make_interf_live
     (rig: (reg, reg Set.t) Hashtbl.t)
     (live : (int, reg Set.t) Hashtbl.t) : unit =
     (* TODO *)
-   ()
+    Hashtbl.iter (fun i regs -> Set.iter (fun x -> Set.iter (fun y -> if x < y then add_interf rig x y) regs) regs) live
 
 (* [build_interference_graph live_out] construit, en utilisant les fonctions que
    vous avez écrites, le graphe d'interférence en fonction de la vivacité des
@@ -120,8 +121,11 @@ let build_interference_graph (live_out : (int, reg Set.t) Hashtbl.t) code : (reg
 (* [remove_from_rig rig v] supprime le sommet [v] du graphe d'interférences
    [rig]. *)
 let remove_from_rig (rig : (reg, reg Set.t) Hashtbl.t)  (v: reg) : unit =
-   (* TODO *)
-   ()
+    (* TODO *)
+    while Hashtbl.mem rig v do
+      Hashtbl.remove rig v
+    done;
+    Hashtbl.iter (fun x regs -> Hashtbl.modify x (Set.remove v) rig) rig
 
 
 (* Type représentant les différentes décisions qui peuvent être prises par
@@ -159,8 +163,8 @@ type regalloc_decision =
    possédant strictement moins de [n] voisins. Retourne [None] si aucun sommet
    ne satisfait cette condition. *)
 let pick_node_with_fewer_than_n_neighbors (rig : (reg, reg Set.t) Hashtbl.t) (n: int) : reg option =
-   (* TODO *)
-   None
+    (* TODO *)
+    Hashtbl.fold (fun x regs acc -> if (Set.cardinal regs) < n then Some x else acc) rig None
 
 (* Lorsque la fonction précédente échoue (i.e. aucun sommet n'a moins de [n]
    voisins), on choisit un pseudo-registre à évincer.
@@ -171,24 +175,30 @@ let pick_node_with_fewer_than_n_neighbors (rig : (reg, reg Set.t) Hashtbl.t) (n:
    [pick_spilling_candidate rig] retourne donc le pseudo-registre [r] qui a le
    plus de voisins dans [rig], ou [None] si [rig] est vide. *)
 let pick_spilling_candidate (rig : (reg, reg Set.t) Hashtbl.t)  : reg option =
-   (* TODO *)
-   None
+    (* TODO *)
+    let candidate_number_of_neighbours = Hashtbl.fold (fun x regs acc -> 
+      match acc with
+      | None -> Some (x, Set.cardinal regs)
+      | Some (y, k) -> if Set.cardinal regs > k then Some (x, Set.cardinal regs) else acc
+    ) rig None 
+        in match candidate_number_of_neighbours with
+        | None -> None
+        | Some (y, k) -> Some y
 
 (* [make_stack rig stack ncolors] construit la pile, selon l'algorithme vu en
    cours (slide 26 du cours "Allocation de registres"
    présent sur Edunao.) *)
 let rec make_stack (rig : (reg, reg Set.t) Hashtbl.t)  (stack : regalloc_decision list) (ncolors: int) : regalloc_decision list =
-   (* TODO *)
-   stack
+    (* TODO *)
+    match pick_node_with_fewer_than_n_neighbors rig ncolors with
+    | Some r -> remove_from_rig rig r; make_stack rig (NoSpill r :: stack) ncolors
+    | None -> 
+      match pick_spilling_candidate rig with
+      | Some r -> remove_from_rig rig r; make_stack rig (Spill r :: stack) ncolors
+      | None -> stack
 
 (* Maintenant que nous avons une pile de [regalloc_decision], il est temps de
-   colorer notre graphe, i.e. associer une couleur (un numéro de registre
-   physique) à chaque pseudo-registre. Nous allons parcourir la pile et pour
-   chaque décision :
-
-   -  [Spill r] : associer un emplacement sur la pile au pseudo-registre [r]. On
-   choisira l'emplacement [next_stack_slot].
-
+   colorer notre graphe, i.e. associer une couleur (un numéro de restack@[NoSpill r]
    - [NoSpill r] : associer une couleur (un registre) physique au
    pseudo-registre [r]. On choisira une couleur qui n'est pas déjà associée à un
    voisin de [r] dans [rig].
@@ -218,8 +228,18 @@ let allocate (allocation: (reg, loc) Hashtbl.t) (rig: (reg, reg Set.t) Hashtbl.t
     (all_colors: int Set.t)
     (next_stack_slot: int) (decision: regalloc_decision)
   : int =
-   (* TODO *)
-   next_stack_slot
+    (* TODO *)
+    match decision with
+    | Spill r -> Hashtbl.add allocation r (Stk next_stack_slot); next_stack_slot-1
+    | NoSpill r -> let neighbours = Hashtbl.find rig r
+      in let neighbour_colors = Set.filter_map (
+        fun neighbour -> match Hashtbl.find_opt allocation neighbour with
+        | Some (Reg color) -> Some color
+        | _ -> None
+      ) neighbours  
+        in let available_colors = Set.diff all_colors neighbour_colors 
+          in let chosen_color = Set.choose available_colors
+            in Hashtbl.add allocation r (Reg chosen_color); next_stack_slot
 
 (* [regalloc_fun f live_out all_colors] effectue l'allocation de registres pour
    la fonction [f].
