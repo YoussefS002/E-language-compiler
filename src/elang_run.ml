@@ -30,26 +30,49 @@ let eval_unop (u: unop) : int -> int =
 
 (* [eval_eexpr st e] évalue l'expression [e] dans l'état [st]. Renvoie une
    erreur si besoin. *)
-let rec eval_eexpr st (e : expr) : int res =
+let rec eval_eexpr oc st (ep: eprog) (e : expr) : (int * int state) res =
    match e with
-   | Eint i -> OK i
+   | Eint i -> OK (i, st)
    | Evar s -> 
       (match Hashtbl.find_option st.env s with
-      | Some i -> OK i
+      | Some i -> OK (i, st)
       | None -> Error "Variable is not defined")
    | Ebinop (b, ex, ey) -> 
-      (let res_x = eval_eexpr st ex
-         in let res_y = eval_eexpr st ey
-            in match res_x, res_y with
-            | Error msg, _ -> Error msg
-            | _, Error msg -> Error msg
-            | OK x, OK y -> OK (eval_binop b x y))
-   | Eunop (u, ex) ->
-      (let res_x = eval_eexpr st ex
+      (let res_x = eval_eexpr oc st ep ex
          in match res_x with
          | Error msg -> Error msg
-         | OK x -> OK (eval_unop u x ))
-
+         | OK (x, st') -> 
+            let res_y = eval_eexpr oc st' ep ey
+               in match res_y with
+               | Error msg -> Error msg
+               | OK (y, st'') -> OK (eval_binop b x y, st''))
+   | Eunop (u, ex) ->
+      (let res_x = eval_eexpr oc st ep ex
+         in match res_x with
+         | Error msg -> Error msg
+         | OK (x, st') -> OK (eval_unop u x, st'))
+   | Ecall (f, args) -> 
+      let (res : (int list * int state) res) = List.fold_left (
+            fun (acc : (int list * int state) res) (arg : expr) -> 
+            match acc with
+            | Error msg -> Error msg
+            | OK (l, st') -> 
+               match eval_eexpr oc st' ep arg with
+               | Error msg -> Error msg
+               | OK (i, st'') -> OK ((l@[i]), st'')
+                  ) (OK([], st)) args
+         in match res with
+         | Error msg -> Error msg
+         | OK (int_args, st') -> 
+            match find_function ep f with
+            | Error msg -> Error msg
+            | OK found_f -> 
+               match eval_efun oc st' ep found_f f int_args with
+               | Error msg -> Error msg
+               | OK (None, st'') -> Error (Format.sprintf "E: Function %s doesn't have a return value.\n" f)
+               | OK (Some ret, st'') -> OK (ret, st'')
+         
+         
 (* [eval_einstr oc st ins] évalue l'instrution [ins] en partant de l'état [st].
 
    Le paramètre [oc] est un "output channel", dans lequel la fonction "print"
@@ -62,59 +85,78 @@ let rec eval_eexpr st (e : expr) : int res =
    lieu et que l'exécution doit continuer.
 
    - [st'] est l'état mis à jour. *)
-let rec eval_einstr oc (st: int state) (ins: instr) :
+and eval_einstr oc (st: int state) (ep: eprog) (ins: instr) :
   (int option * int state) res =
    match ins with
    | Iassign (s, e) -> 
-      (match eval_eexpr st e with
+      (match eval_eexpr oc st ep e with
          | Error msg -> Error msg
-         | OK v -> 
+         | OK (v, st') -> 
             let replace st s v =
                   let new_env = Hashtbl.copy st.env 
                      in Hashtbl.replace new_env s v; 
                         {st with env = new_env}  
-               in OK (None, replace st s v))
+               in OK (None, replace st' s v))
    | Iif (e, i1, i2) -> 
-      (match eval_eexpr st e with 
+      (match eval_eexpr oc st ep e with 
       | Error msg -> Error msg
-      | OK v -> if v=1 then eval_einstr oc st i1 else eval_einstr oc st i2)
+      | OK (v, st') -> if v = 1 then eval_einstr oc st' ep i1 else eval_einstr oc st' ep i2)
    | Iwhile (e, i) -> 
-      (match eval_eexpr st e with
+      (match eval_eexpr oc st ep e with
          | Error msg -> Error msg
-         | OK v ->
-            if v=1 
-               then (let res_i = eval_einstr oc st i
+         | OK (v, st') ->
+            if v = 1 
+               then (let res_i = eval_einstr oc st' ep i
                   in match res_i with
                   | Error msg -> Error msg
                   | OK (r_opt, next_st) -> match r_opt with 
-                     | None -> eval_einstr oc next_st (Iwhile (e, i))
+                     | None -> eval_einstr oc next_st ep (Iwhile (e, i))
                      | Some r -> OK (r_opt, next_st)) 
-               else OK(None, st))
+               else OK(None, st'))
    | Iblock i_list -> 
       (match i_list with
       | [] -> OK (None, st)
       | i::rest -> 
-         match eval_einstr oc st i with
+         match eval_einstr oc st ep i with
          | Error msg -> Error msg
          | OK (Some r, next_st) -> OK (Some r, next_st)
-         | OK (None, next_st) -> eval_einstr oc next_st (Iblock rest))
+         | OK (None, next_st) -> eval_einstr oc next_st ep (Iblock rest))
    | Ireturn e -> 
-      (match eval_eexpr st e with
+      (match eval_eexpr oc st ep e with
       | Error msg -> Error msg
-      | OK v -> OK(Some v, st))  
+      | OK (v, st') -> OK(Some v, st'))  
    | Iprint e -> 
-      (match eval_eexpr st e with
+      (match eval_eexpr oc st ep e with
       | Error msg -> Error msg
-      | OK v -> 
+      | OK (v, st') -> 
          Format.fprintf oc "%d\n" v;
-         OK(None, st))
+         OK(None, st'))
+   | Icall (f, args) -> 
+      let (res : (int list * int state) res) = List.fold_left (
+            fun (acc : (int list * int state) res) (arg : expr) -> 
+            match acc with
+            | Error msg -> Error msg
+            | OK (l, st') -> 
+               match eval_eexpr oc st' ep arg with
+               | Error msg -> Error msg
+               | OK (i, st'') -> OK ((l@[i]), st'')
+                  ) (OK([], st)) args
+         in match res with
+         | Error msg -> Error msg
+         | OK (int_args, st') -> 
+            match find_function ep f with
+            | Error msg -> Error msg
+            | OK found_f -> 
+               match eval_efun oc st' ep found_f f int_args with
+               | Error msg -> Error msg
+               | OK (_, st'') -> OK (None, st'')
 
 (* [eval_efun oc st f fname vargs] évalue la fonction [f] (dont le nom est
    [fname]) en partant de l'état [st], avec les arguments [vargs].
 
    Cette fonction renvoie un couple (ret, st') avec la même signification que
    pour [eval_einstr]. *)
-let eval_efun oc (st: int state) ({ funargs; funbody}: efun)
+and eval_efun oc (st: int state) ep ({ funargs; funbody}: efun)
     (fname: string) (vargs: int list)
   : (int option * int state) res =
   (* L'environnement d'une fonction (mapping des variables locales vers leurs
@@ -126,7 +168,7 @@ let eval_efun oc (st: int state) ({ funargs; funbody}: efun)
   let env = Hashtbl.create 17 in
   match List.iter2 (fun a v -> Hashtbl.replace env a v) funargs vargs with
   | () ->
-    eval_einstr oc { st with env } funbody >>= fun (v, st') ->
+    eval_einstr oc { st with env } ep funbody >>= fun (v, st') ->
     OK (v, { st' with env = env_save })
   | exception Invalid_argument _ ->
     Error (Format.sprintf
@@ -157,5 +199,5 @@ let eval_eprog oc (ep: eprog) (memsize: int) (params: int list)
   (* ne garde que le nombre nécessaire de paramètres pour la fonction "main". *)
   let n = List.length f.funargs in
   let params = take n params in
-  eval_efun oc st f "main" params >>= fun (v, _) ->
+  eval_efun oc st ep f "main" params >>= fun (v, _) ->
   OK v

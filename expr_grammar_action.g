@@ -10,6 +10,9 @@ non-terminals ADD_EXPRS ADD_EXPR
 non-terminals MUL_EXPRS MUL_EXPR
 non-terminals CMP_EXPRS CMP_EXPR
 non-terminals EQ_EXPRS EQ_EXPR
+
+non-terminals AFTER_IDENTIFIER LARGS REST_ARGS
+
 axiom S
 {
 
@@ -20,6 +23,10 @@ axiom S
   open Batteries
   open Utils
 
+  type after_id =
+  | Assign of tree
+  | Funcall of tree list
+  | Nothing
 
   (* TODO *)
   let rec resolve_associativity (term : tree) (other : (tag * tree) list) =
@@ -40,6 +47,11 @@ LPARAMS -> { [] }
 REST_PARAMS -> SYM_COMMA LPARAMS { $2 }
 REST_PARAMS -> { [] }
 
+LARGS -> EXPR REST_ARGS { $1::$2 }
+LARGS -> { [] }
+REST_ARGS -> SYM_COMMA LARGS { $2 }
+REST_ARGS -> { [] }
+
 LINSTRS -> INSTR INSTRS { Node(Tblock, $1::$2) }
 LINSTRS -> { NullLeaf }
 INSTRS -> INSTR INSTRS { $1::$2 }
@@ -49,8 +61,17 @@ INSTR -> SYM_IF SYM_LPARENTHESIS EXPR SYM_RPARENTHESIS SYM_LBRACE LINSTRS SYM_RB
 INSTR -> SYM_WHILE SYM_LPARENTHESIS EXPR SYM_RPARENTHESIS INSTR { Node(Twhile, [$3; $5]) }
 INSTR -> SYM_RETURN EXPR SYM_SEMICOLON { Node(Treturn, [$2]) }
 INSTR -> SYM_PRINT SYM_LPARENTHESIS EXPR SYM_RPARENTHESIS SYM_SEMICOLON { Node(Tprint, [$3]) }
-INSTR -> IDENTIFIER SYM_ASSIGN EXPR SYM_SEMICOLON { Node(Tassign, [$1; $3]) }
+INSTR -> IDENTIFIER AFTER_IDENTIFIER SYM_SEMICOLON { 
+  match $2 with
+  | Assign exp -> Node(Tassign, [$1; exp]) 
+  | Funcall args -> Node(Tcall, [$1; Node(Targs, args)]) 
+  | _ -> $1 
+}
 INSTR -> SYM_LBRACE LINSTRS SYM_RBRACE { $2 }
+
+AFTER_IDENTIFIER -> SYM_ASSIGN EXPR { Assign $2 }
+AFTER_IDENTIFIER -> SYM_LPARENTHESIS LARGS SYM_RPARENTHESIS { Funcall $2 }
+AFTER_IDENTIFIER -> { Nothing }
 
 ELSE -> SYM_ELSE SYM_LBRACE LINSTRS SYM_RBRACE { $3 }
 ELSE -> { NullLeaf }
@@ -59,6 +80,8 @@ EXPR -> EQ_EXPR EQ_EXPRS { resolve_associativity $1 $2 }
 EQ_EXPR -> CMP_EXPR CMP_EXPRS { resolve_associativity $1 $2 }
 CMP_EXPR -> ADD_EXPR ADD_EXPRS { resolve_associativity $1 $2 }
 ADD_EXPR -> MUL_EXPR MUL_EXPRS { resolve_associativity $1 $2 }
+ADD_EXPR -> SYM_MINUS MUL_EXPR MUL_EXPRS { resolve_associativity (Node(Tneg, [$2])) $3 }
+ADD_EXPR -> SYM_PLUS MUL_EXPR MUL_EXPRS { resolve_associativity $2 $3 }
 MUL_EXPR -> FACTOR { $1 }
 
 EQ_EXPRS -> SYM_EQUALITY EQ_EXPR EQ_EXPRS { (Tceq, $2)::$3 } 
@@ -81,7 +104,12 @@ MUL_EXPRS -> SYM_MOD MUL_EXPR MUL_EXPRS { (Tmod, $2)::$3 }
 MUL_EXPRS -> { [] }
 
 FACTOR -> INTEGER { $1 }
-FACTOR -> IDENTIFIER { $1 }
+FACTOR -> IDENTIFIER AFTER_IDENTIFIER { 
+  match $2 with
+  | Funcall args -> Node(Tcall, [$1; Node(Targs, args)])
+  | Nothing -> $1
+  | _ -> $1
+}
 FACTOR -> SYM_LPARENTHESIS EXPR SYM_RPARENTHESIS { $2 }
 
 IDENTIFIER -> SYM_IDENTIFIER {StringLeaf $1}

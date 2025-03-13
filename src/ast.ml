@@ -28,9 +28,9 @@ type tag = Tassign | Tif | Twhile | Tblock | Treturn | Tprint
          | Tclt | Tcgt | Tcle | Tcge | Tceq | Tne
          | Tneg
          | Tlistglobdef
-         | Tfundef | Tfunname | Tfunargs | Tfunbody
+         | Tfundef | Tfunname | Tfunargs | Tfunbody | Tcall
          | Tassignvar
-         | Targ
+         | Targ | Targs
 
 type tree = | Node of tag * tree list
             | StringLeaf of string
@@ -73,7 +73,8 @@ let string_of_tag = function
   | Tfunbody -> "Tfunbody"
   | Tassignvar -> "Tassignvar"
   | Targ -> "Targ"
-
+  | Tcall -> "Tcall"
+  | Targs -> "Targs"
 
 (* Écrit un fichier .dot qui correspond à un AST *)
 let rec draw_ast a next =

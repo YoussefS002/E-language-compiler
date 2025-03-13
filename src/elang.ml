@@ -6,9 +6,10 @@ type unop = Eneg
 
 type expr =
     Ebinop of binop * expr * expr
-  | Eunop of unop * expr (*unused in grammar*)
+  | Eunop of unop * expr
   | Eint of int
   | Evar of string
+  | Ecall of string * expr list
 
 type instr =
   | Iassign of string * expr
@@ -17,6 +18,7 @@ type instr =
   | Iblock of instr list
   | Ireturn of expr
   | Iprint of expr
+  | Icall of string * expr list
 
 type efun = {
   funargs: ( string ) list;

@@ -92,6 +92,7 @@ let make_interf_live
     (* TODO *)
     Hashtbl.iter (fun i regs -> Set.iter (fun x -> Set.iter (fun y -> if x < y then add_interf rig x y) regs) regs) live
 
+      
 (* [build_interference_graph live_out] construit, en utilisant les fonctions que
    vous avez écrites, le graphe d'interférence en fonction de la vivacité des
    variables à la sortie des nœuds donné par [live_out].
@@ -122,11 +123,8 @@ let build_interference_graph (live_out : (int, reg Set.t) Hashtbl.t) code : (reg
    [rig]. *)
 let remove_from_rig (rig : (reg, reg Set.t) Hashtbl.t)  (v: reg) : unit =
     (* TODO *)
-    while Hashtbl.mem rig v do
-      Hashtbl.remove rig v
-    done;
+    Hashtbl.remove rig v;
     Hashtbl.iter (fun x regs -> Hashtbl.modify x (Set.remove v) rig) rig
-
 
 (* Type représentant les différentes décisions qui peuvent être prises par
    l'allocateur de registres.
