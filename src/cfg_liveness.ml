@@ -12,6 +12,7 @@ let rec vars_in_expr (e: expr) =
    | Evar s -> Set.singleton s
    | Ebinop (b, e1, e2) -> Set.union (vars_in_expr e1) (vars_in_expr e2)
    | Eunop (u, e) -> vars_in_expr e
+   | Ecall (f, args) -> set_concat (List.map vars_in_expr args)
 
 (* [live_after_node cfg n] renvoie l'ensemble des variables vivantes après le
    nœud [n] dans un CFG [cfg]. [lives] est l'état courant de l'analyse,
@@ -34,6 +35,7 @@ let live_cfg_node (node: cfg_node) (live_after: string Set.t) =
          | Cprint (e, i) -> vars_in_expr e
          | Ccmp (e, i1, i2) -> vars_in_expr e
          | Cnop (i) -> Set.empty
+         | Ccall (f, args, i) -> vars_in_expr (Ecall (f, args))
       in let def node =
             match node with
             | Cassign (s, e, i) -> Set.singleton s

@@ -100,7 +100,7 @@ and eval_einstr oc (st: int state) (ep: eprog) (ins: instr) :
    | Iif (e, i1, i2) -> 
       (match eval_eexpr oc st ep e with 
       | Error msg -> Error msg
-      | OK (v, st') -> if v = 1 then eval_einstr oc st' ep i1 else eval_einstr oc st' ep i2)
+      | OK (v, st') -> if v = 0 then eval_einstr oc st' ep i2 else eval_einstr oc st' ep i1)
    | Iwhile (e, i) -> 
       (match eval_eexpr oc st ep e with
          | Error msg -> Error msg
