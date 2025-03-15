@@ -41,6 +41,10 @@ let dump_rtl_instr name (live_in, live_out) ?(endl="\n") oc (i: rtl_instr) =
   | Rret r -> Format.fprintf oc "ret %s" (print_reg r)
   | Rprint r -> Format.fprintf oc "print %s" (print_reg r)
   | Rlabel n -> Format.fprintf oc "%s_%d:" name n
+  | Rcall (rd_opt, f, regs) ->  
+    match rd_opt with
+    | None -> Format.fprintf oc "call %s with args : %s" f (String.concat ", " (List.map print_reg regs))
+    | Some rd -> Format.fprintf oc "%s <- call %s with args : %s" (print_reg rd) f (String.concat ", " (List.map print_reg regs))
   end;
   Format.fprintf oc "%s" endl;
   dump_liveness live_out "after"

@@ -77,6 +77,25 @@ let rec exec_rtl_instr oc rp rtlfunname f st (i: rtl_instr) =
       | _ -> Error (Printf.sprintf "Print on undefined register (%s)" (print_reg r))
     end
   | Rlabel n -> OK (None, st)
+  | Rcall (rd_opt, g, args) -> 
+    begin 
+    let vs_opt = List.fold_left (fun acc arg -> 
+        match acc with
+        | None -> None
+        | Some vs -> 
+          (match Hashtbl.find_option st.regs arg with
+          | None -> None
+          | Some v -> Some (vs@[v]))) 
+          (Some []) args 
+      in match vs_opt with
+      | Some params -> find_function rp g >>= fun found_g ->
+        (match rd_opt, exec_rtl_fun oc rp st g found_g params with
+        | _, Error msg -> Error msg
+        | Some rd, OK (Some ret, st') -> exec_rtl_instr oc rp rtlfunname f st' (Rconst (rd, ret))
+        | Some rd, OK (None, st') -> Error (Printf.sprintf "Function %s doesn't have a return value" g)
+        | None, OK (_, st') -> OK(None, st'))
+      | _ -> Error (Printf.sprintf "Function %s applied on undefined register" g)
+    end
 
 and exec_rtl_instr_at oc rp rtlfunname ({ rtlfunbody;  } as f: rtl_fun) st i =
   match Hashtbl.find_option rtlfunbody i with
