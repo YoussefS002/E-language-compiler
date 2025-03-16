@@ -16,18 +16,21 @@ let gen_live (i: rtl_instr) =
   | Rmov (_, rs) -> Set.singleton rs
   | Rret r -> Set.singleton r
   | Rlabel _ -> Set.empty
+  | Rcall (_, _, args) -> Set.of_list args
 
 let kill_live (i: rtl_instr) =
   match i with
   | Rbinop (_, rd, _, _)
   | Runop (_, rd,_)
   | Rconst (rd, _)
-  | Rmov (rd,_) -> Set.singleton rd
+  | Rmov (rd,_)
+  | Rcall (Some rd, _, _) -> Set.singleton rd
   | Rbranch (_, _, _, _)
   | Rprint _
   | Rret _
   | Rjmp _
-  | Rlabel _ -> Set.empty
+  | Rlabel _ 
+  | Rcall (None, _, _) -> Set.empty
 
 let linear_succs (ins: rtl_instr) i labels =
   match ins with

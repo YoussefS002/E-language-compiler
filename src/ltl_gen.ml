@@ -51,7 +51,7 @@ let make_loc_mov src dst =
     [LMov(rdst,rsrc)]
 
 (* load_loc tmp allocation r = (l, r'). Loads the equivalent of RTL register r
-   in a LTL register r'. tmpis used if necessary. *)
+   in a LTL register r'. tmp is used if necessary. *)
 let load_loc tmp allocation r =
   match Hashtbl.find_option allocation r with
   | None ->
@@ -215,26 +215,27 @@ let written_rtl_regs_instr (i: rtl_instr) =
   | Rbinop (_, rd, _, _)
   | Runop (_, rd, _)
   | Rconst (rd, _)
-  | Rmov (rd, _) -> Set.singleton rd
+  | Rmov (rd, _) 
+  | Rcall (Some rd, _, _)-> Set.singleton rd
   | Rprint _
   | Rret _
   | Rlabel _
   | Rbranch (_, _, _, _)
-  | Rjmp _ -> Set.empty
+  | Rjmp _ 
+  | Rcall (None, _, _) -> Set.empty
 
 let read_rtl_regs_instr (i: rtl_instr) =
   match i with
   | Rbinop (_, _, rs1, rs2)
   | Rbranch (_, rs1, rs2, _) -> Set.of_list [rs1; rs2]
-
   | Rprint rs
   | Runop (_, _, rs)
   | Rmov (_, rs)
   | Rret rs -> Set.singleton rs
-
   | Rlabel _
   | Rconst (_, _)
   | Rjmp _ -> Set.empty
+  | Rcall (_, _, args) -> Set.of_list args
 
 let read_rtl_regs (l: rtl_instr list) =
   List.fold_left (fun acc i -> Set.union acc (read_rtl_regs_instr i))
@@ -323,6 +324,30 @@ let ltl_instrs_of_linear_instr fname live_out allocation
     load_loc reg_tmp1 allocation r >>= fun (l,r) ->
     OK (l @ [LMov (reg_ret, r) ; LJmp epilogue_label])
   | Rlabel l -> OK [LLabel (Format.sprintf "%s_%d" fname l)]
+
+  | Rcall (rd_opt, f, rargs) -> 
+    caller_save live_out allocation rargs >>= fun to_save ->
+    let save_regs_instrs, arg_saved, ofs = save_caller_save (Set.to_list to_save) (-(numspilled + 1))
+    in let move_sp_instr1 = LSubi(reg_sp, reg_s0, (Archi.wordsize ()) * -(ofs + 1))
+    in pass_parameters rargs allocation arg_saved >>= fun (parameter_passing_instrs, npush) ->
+    let call_instr = LCall f
+    in let move_sp_instr2 = LAddi(reg_sp, reg_sp, (Archi.wordsize ()) * npush)
+    in let return_instrs_and_reg = match rd_opt with
+    | None -> OK ([], None)
+    | Some rd -> 
+      match Hashtbl.find_option allocation rd with
+      | None -> Error (Format.sprintf "Could not find allocation for register %d\n" rd)
+      | Some (Stk o) -> OK (make_loc_mov (Reg reg_ret) (Stk o) , None)
+      | Some (Reg r_phy) -> OK (make_loc_mov (Reg reg_ret) (Reg r_phy), Some r_phy)
+    in return_instrs_and_reg >>= fun (return_instrs, r_ret_opt) ->
+    let arg_saved_wout_rd = List.filter (fun (reg, stk_loc) -> match r_ret_opt with | None -> true | Some r_ret -> reg != r_ret) arg_saved
+    in let restore_caller_save_instrs = restore_caller_save arg_saved_wout_rd
+    in let move_sp_instr3 = LAddi(reg_sp, reg_sp, (Archi.wordsize ()) * -(ofs + 1))
+    in OK (save_regs_instrs 
+    @ move_sp_instr1 :: parameter_passing_instrs 
+    @ call_instr :: move_sp_instr2 :: return_instrs
+    @ restore_caller_save_instrs
+    @ [move_sp_instr3])
   in
   res >>= fun l ->
   OK (LComment (Format.asprintf "#<span style=\"background: pink;\"><b>Linear instr</b>: %a #</span>" (Rtl_print.dump_rtl_instr fname (None, None) ~endl:"") ins)::l)
