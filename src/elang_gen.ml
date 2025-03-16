@@ -108,11 +108,6 @@ let rec make_einstr_of_ast (a: tree) : instr res =
         in match res_of_e with 
         | OK exp -> OK (Ireturn exp)
         | Error msg -> Error msg)
-    | Node(Tprint, [e]) -> 
-      (let res_of_e = make_eexpr_of_ast e 
-        in match res_of_e with 
-        | OK exp -> OK (Iprint exp)
-        | Error msg -> Error msg)
     | Node(Tcall, [StringLeaf f; Node(Targs, args)]) -> 
       (let res = list_map_res make_eexpr_of_ast args 
         in match res with

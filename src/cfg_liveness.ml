@@ -32,7 +32,6 @@ let live_cfg_node (node: cfg_node) (live_after: string Set.t) =
          match node with
          | Cassign (s, e, i) -> vars_in_expr e
          | Creturn e -> vars_in_expr e
-         | Cprint (e, i) -> vars_in_expr e
          | Ccmp (e, i1, i2) -> vars_in_expr e
          | Cnop (i) -> Set.empty
          | Ccall (f, args, i) -> vars_in_expr (Ecall (f, args))

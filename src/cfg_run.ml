@@ -34,12 +34,18 @@ let rec eval_cfgexpr oc st cp (e: expr) : (int * int state) res =
             | Error msg -> Error msg
             | OK (i, st'') -> OK ((l@[i]), st'')
               ) (OK([], st)) args >>= fun (int_args, st') ->
-                find_function cp f >>= fun found_f ->
-                  match eval_cfgfun oc st' cp f found_f int_args with
-                  | Error msg -> Error msg
-                  | OK (None, st'') -> Error (Format.sprintf "CFG: Function %s doesn't have a return value.\n" f)
-                  | OK (Some ret, st'') -> OK (ret, st'')
-  
+                match find_function cp f with
+            | OK found_f -> 
+               (match eval_cfgfun oc st' cp f found_f int_args with
+               | Error msg -> Error msg
+               | OK (None, st'') -> Error (Format.sprintf "CFG: Function %s doesn't have a return value.\n" f)
+               | OK (Some ret, st'') -> OK (ret, st''))
+            | Error msg -> 
+               (match do_builtin oc st.mem f int_args with
+               | Error msg -> Error msg
+               | OK None -> Error (Format.sprintf "CFG: Function %s doesn't have a return value.\n" f)
+               | OK (Some ret) -> OK (ret, st'))
+
 and eval_cfginstr oc st cp ht (n: int): (int * int state) res =
   match Hashtbl.find_option ht n with
   | None -> Error (Printf.sprintf "Invalid node identifier\n")
@@ -57,10 +63,6 @@ and eval_cfginstr oc st cp ht (n: int): (int * int state) res =
     | Creturn(e) ->
       eval_cfgexpr oc st cp e >>= fun (e, st') ->
       OK (e, st')
-    | Cprint(e, succ) ->
-      eval_cfgexpr oc st cp e >>= fun (e, st') ->
-      Format.fprintf oc "%d\n" e;
-      eval_cfginstr oc st' cp ht succ
     | Ccall (f, args, succ) ->
       List.fold_left (
         fun (acc : (int list * int state) res) (arg : expr) -> 
@@ -72,9 +74,16 @@ and eval_cfginstr oc st cp ht (n: int): (int * int state) res =
             | OK (i, st'') -> OK ((l@[i]), st'')
               ) (OK([], st)) args 
               >>= fun (int_args, st') ->
-              find_function cp f >>= fun found_f ->
-              eval_cfgfun oc st' cp f found_f int_args >>= fun (ret, st'') -> 
-              eval_cfginstr oc st'' cp ht succ
+                match find_function cp f with
+                | OK found_f -> 
+                   (match eval_cfgfun oc st' cp f found_f int_args with
+                   | Error msg -> Error msg
+                   | OK (_, st'') -> eval_cfginstr oc st'' cp ht succ)
+                | Error msg -> 
+                   (match do_builtin oc st'.mem f int_args with
+                   | OK _ -> eval_cfginstr oc st' cp ht succ
+                   | Error msg -> Error msg )
+              
 
 and eval_cfgfun oc st cp cfgfunname { cfgfunargs;
                                       cfgfunbody;

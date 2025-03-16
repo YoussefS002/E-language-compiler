@@ -64,7 +64,6 @@ let replace_succs nop_succs (n: cfg_node) =
    (* TODO *)
    match n with
    | Cassign (s, e, i) -> Cassign (s, e, replace_succ nop_succs i)
-   | Cprint (e, i) -> Cprint (e, replace_succ nop_succs i)
    | Ccmp (e, i1, i2) -> Ccmp (e, replace_succ nop_succs i1, replace_succ nop_succs i2)
    | Cnop i -> Cnop (replace_succ nop_succs i)
    | Creturn e -> Creturn e

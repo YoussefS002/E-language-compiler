@@ -2,6 +2,7 @@ open Elang
 open Batteries
 open Prog
 open Utils
+open Builtins
 
 let binop_bool_to_int f x y = if f x y then 1 else 0
 
@@ -65,13 +66,16 @@ let rec eval_eexpr oc st (ep: eprog) (e : expr) : (int * int state) res =
          | Error msg -> Error msg
          | OK (int_args, st') -> 
             match find_function ep f with
-            | Error msg -> Error msg
             | OK found_f -> 
-               match eval_efun oc st' ep found_f f int_args with
+               (match eval_efun oc st' ep found_f f int_args with
                | Error msg -> Error msg
                | OK (None, st'') -> Error (Format.sprintf "E: Function %s doesn't have a return value.\n" f)
-               | OK (Some ret, st'') -> OK (ret, st'')
-         
+               | OK (Some ret, st'') -> OK (ret, st''))
+            | Error msg -> 
+               (match do_builtin oc st'.mem f int_args with
+               | Error msg -> Error msg
+               | OK None -> Error (Format.sprintf "E: Function %s doesn't have a return value.\n" f)
+               | OK (Some ret) -> OK (ret, st'))
          
 (* [eval_einstr oc st ins] évalue l'instrution [ins] en partant de l'état [st].
 
@@ -125,12 +129,6 @@ and eval_einstr oc (st: int state) (ep: eprog) (ins: instr) :
       (match eval_eexpr oc st ep e with
       | Error msg -> Error msg
       | OK (v, st') -> OK(Some v, st'))  
-   | Iprint e -> 
-      (match eval_eexpr oc st ep e with
-      | Error msg -> Error msg
-      | OK (v, st') -> 
-         Format.fprintf oc "%d\n" v;
-         OK(None, st'))
    | Icall (f, args) -> 
       let (res : (int list * int state) res) = List.fold_left (
             fun (acc : (int list * int state) res) (arg : expr) -> 
@@ -145,11 +143,14 @@ and eval_einstr oc (st: int state) (ep: eprog) (ins: instr) :
          | Error msg -> Error msg
          | OK (int_args, st') -> 
             match find_function ep f with
-            | Error msg -> Error msg
             | OK found_f -> 
-               match eval_efun oc st' ep found_f f int_args with
+               (match eval_efun oc st' ep found_f f int_args with
                | Error msg -> Error msg
-               | OK (_, st'') -> OK (None, st'')
+               | OK (_, st'') -> OK (None, st''))
+            | Error msg -> 
+               (match do_builtin oc st'.mem f int_args with
+               | OK _ -> OK (None, st')
+               | Error msg -> Error msg )
 
 (* [eval_efun oc st f fname vargs] évalue la fonction [f] (dont le nom est
    [fname]) en partant de l'état [st], avec les arguments [vargs].

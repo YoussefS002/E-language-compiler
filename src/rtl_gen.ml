@@ -90,9 +90,6 @@ let rtl_instrs_of_cfg_node ((next_reg:int), (var2reg: (string*int) list)) (c: cf
   | Creturn e ->
     let r_e, l, next_reg', var2reg' = rtl_instrs_of_cfg_expr (next_reg, var2reg) e
       in (l@[Rret r_e], next_reg', var2reg')
-  | Cprint (e, i) ->
-    let r_e, l, next_reg', var2reg' = rtl_instrs_of_cfg_expr (next_reg, var2reg) e
-      in (l@[Rprint r_e; Rjmp i], next_reg', var2reg')
   | Ccmp (e, i1, i2) ->
     let cmp, e1, e2 = rtl_cmp_of_cfg_expr e
       in let r1, l1, next_reg1, var2reg1 = rtl_instrs_of_cfg_expr (next_reg, var2reg) e1

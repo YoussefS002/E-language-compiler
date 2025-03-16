@@ -69,13 +69,6 @@ let rec exec_rtl_instr oc rp rtlfunname f st (i: rtl_instr) =
       | Some s -> OK (Some s, st)
       | _ -> Error (Printf.sprintf "Ret on undefined register (%s)" (print_reg r))
     end
-  | Rprint r ->
-    begin match Hashtbl.find_option st.regs r with
-      | Some s ->
-        Format.fprintf oc "%d\n" s;
-        OK (None, st)
-      | _ -> Error (Printf.sprintf "Print on undefined register (%s)" (print_reg r))
-    end
   | Rlabel n -> OK (None, st)
   | Rcall (rd_opt, g, args) -> 
     begin 
@@ -88,13 +81,22 @@ let rec exec_rtl_instr oc rp rtlfunname f st (i: rtl_instr) =
           | Some v -> Some (vs@[v]))) 
           (Some []) args 
       in match vs_opt with
-      | Some params -> find_function rp g >>= fun found_g ->
-        (match rd_opt, exec_rtl_fun oc rp st g found_g params with
-        | _, Error msg -> Error msg
-        | Some rd, OK (Some ret, st') -> exec_rtl_instr oc rp rtlfunname f st' (Rconst (rd, ret))
-        | Some rd, OK (None, st') -> Error (Printf.sprintf "Function %s doesn't have a return value" g)
-        | None, OK (_, st') -> OK(None, st'))
+      | Some params -> 
+        (match find_function rp g with
+        | OK found_g ->
+          (match rd_opt, exec_rtl_fun oc rp st g found_g params with
+          | _, Error msg -> Error msg
+          | Some rd, OK (Some ret, st') -> exec_rtl_instr oc rp rtlfunname f st' (Rconst (rd, ret))
+          | Some rd, OK (None, st') -> Error (Printf.sprintf "Function %s doesn't have a return value" g)
+          | None, OK (_, st') -> OK(None, st'))
+        | Error msg -> 
+          (match rd_opt, do_builtin oc st.mem g params with
+          | _, Error msg -> Error msg
+          | Some rd, OK None -> Error (Format.sprintf "RTL: Function %s doesn't have a return value.\n" g)
+          | Some rd, OK (Some ret) -> exec_rtl_instr oc rp rtlfunname f st (Rconst (rd, ret))
+          | None, OK _ -> OK(None, st)))
       | _ -> Error (Printf.sprintf "Function %s applied on undefined register" g)
+          
     end
 
 and exec_rtl_instr_at oc rp rtlfunname ({ rtlfunbody;  } as f: rtl_fun) st i =
