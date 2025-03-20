@@ -48,7 +48,7 @@ let rec type_expr (typ_var : (string,typ) Hashtbl.t) (typ_fun : (string, typ lis
       type_expr typ_var typ_fun e1 >>= fun t1 ->
       type_expr typ_var typ_fun e2 >>= fun t2 ->
       if t1 != Tvoid && t2 != Tvoid
-        then OK Tint
+        then OK Tint (* à vérifier *)
         else Error "E: Binop is not defined on void type."
   | Eunop (u, e) -> 
       type_expr typ_var typ_fun e >>= fun t ->
@@ -195,7 +195,13 @@ let make_eprog_of_ast (a: tree) : eprog res =
     Hashtbl.replace fun_typ "print" ([Tint], Tvoid);
     Hashtbl.replace fun_typ "print_int" ([Tint], Tvoid);
     Hashtbl.replace fun_typ "print_char" ([Tchar], Tvoid);
-    list_map_res (fun a -> make_fundef_of_ast fun_typ a >>= fun (fname, efun) -> OK (fname, Gfun efun)) l
+    List.fold_left (fun acc a -> 
+    acc >>= fun f_list ->
+    make_fundef_of_ast fun_typ a >>= fun (fname, efun) -> 
+    match List.assoc_opt fname f_list with
+    | None -> OK (f_list@[fname, Gfun efun])
+    | Some (Gfun dec) when dec.funbody = Iblock [] -> OK (List.remove_assoc fname f_list @ [fname, Gfun efun])
+    | _ -> Error (Format.sprintf "E: Multiple definitions of function %s." fname)) (OK []) l
   | _ ->
     Error (Printf.sprintf "make_fundef_of_ast: Expected a Tlistglobdef, got %s."
              (string_of_ast a))

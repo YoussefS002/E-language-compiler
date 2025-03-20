@@ -27,7 +27,7 @@ let rec dump_eexpr = function
   | Eint i -> Printf.sprintf "%d" i
   | Evar s -> Printf.sprintf "%s" s
   | Ecall (f, args) -> Printf.sprintf "%s(%s)" f (String.concat ", " (List.map dump_eexpr args))
-  | Echar c -> Printf.sprintf "%c" c
+  | Echar c -> Printf.sprintf "'%c'" c
 let indent_size = 2
 let spaces n =
   range (indent_size*n) |> List.map (fun _ -> ' ') |> String.of_list
@@ -66,8 +66,9 @@ let rec dump_einstr_rec indent oc i =
 let dump_einstr oc i = dump_einstr_rec 0 oc i
 
 
-let dump_efun oc funname {funargs; funbody} =
-  Format.fprintf oc "%s(%s) {\n%a\n}\n"
+let dump_efun oc funname {funargs; funbody; funrettype} =
+  Format.fprintf oc "%s %s(%s) %a\n"
+    (string_of_typ funrettype)
     funname
     (String.concat "," (List.map (fun (s, t) -> Printf.sprintf "%s %s" (string_of_typ t) s) funargs))
     dump_einstr funbody

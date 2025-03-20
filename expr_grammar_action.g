@@ -13,7 +13,7 @@ non-terminals CMP_EXPRS CMP_EXPR
 non-terminals EQ_EXPRS EQ_EXPR
 
 non-terminals AFTER_IDENTIFIER_INSTR AFTER_IDENTIFIER_FACTOR LARGS REST_ARGS
-non-terminals TYPE AFTER_IDENTIFIER_DEC CHARACTER
+non-terminals TYPE AFTER_IDENTIFIER_DEC CHARACTER FUN_INSTR
 
 axiom S
 {
@@ -42,7 +42,7 @@ rules
 S -> FUNDEFS SYM_EOF { Node(Tlistglobdef, $1) }
 FUNDEFS -> FUNDEF FUNDEFS { $1::$2 }
 FUNDEFS -> { [] }
-FUNDEF -> TYPE IDENTIFIER SYM_LPARENTHESIS LPARAMS SYM_RPARENTHESIS INSTR { Node(Tfundef, [Node(Tfuntype, [$1]); Node(Tfunname, [$2]); Node(Tfunargs, $4); Node(Tfunbody, [$6])]) }
+FUNDEF -> TYPE IDENTIFIER SYM_LPARENTHESIS LPARAMS SYM_RPARENTHESIS FUN_INSTR { Node(Tfundef, [Node(Tfuntype, [$1]); Node(Tfunname, [$2]); Node(Tfunargs, $4); Node(Tfunbody, [$6])]) }
 
 TYPE -> SYM_INT { TypeLeaf Tint }
 TYPE -> SYM_CHAR { TypeLeaf Tchar }
@@ -57,6 +57,9 @@ LARGS -> EXPR REST_ARGS { $1::$2 }
 LARGS -> { [] }
 REST_ARGS -> SYM_COMMA EXPR REST_ARGS { $2::$3 }
 REST_ARGS -> { [] }
+
+FUN_INSTR -> SYM_LBRACE LINSTRS SYM_RBRACE { $2 }
+FUN_INSTR -> SYM_SEMICOLON { NullLeaf }
 
 LINSTRS -> INSTR INSTRS { Node(Tblock, $1::$2) }
 LINSTRS -> { NullLeaf }
