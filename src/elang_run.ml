@@ -4,10 +4,6 @@ open Prog
 open Utils
 open Builtins
 
-let remove_local_vars st local_st =
-   let filtered_env = Hashtbl.filteri (fun k v -> if Hashtbl.mem st.env k then (Printf.printf "Not removing %s\n" k; true) else (Printf.printf "removing %s\n" k; false) ) local_st.env
-      in {local_st with env = filtered_env}
-
 let binop_bool_to_int f x y = if f x y then 1 else 0
 
 (* [eval_binop b x y] évalue l'opération binaire [b] sur les arguments [x]
@@ -38,10 +34,7 @@ let eval_unop (u: unop) : int -> int =
 let rec eval_eexpr oc st (ep: eprog) (e : expr) : (int * int state) res =
    match e with
    | Eint i -> OK (i, st)
-   | Evar s -> 
-      (match Hashtbl.find_option st.env s with
-      | Some i -> OK (i, st)
-      | None -> Error "Variable is not defined")
+   | Evar s -> OK (Hashtbl.find st.env s, st)
    | Ebinop (b, ex, ey) -> 
       eval_eexpr oc st ep ex >>= fun (x, st') ->
       eval_eexpr oc st' ep ey >>= fun (y, st'') ->
@@ -58,15 +51,11 @@ let rec eval_eexpr oc st (ep: eprog) (e : expr) : (int * int state) res =
                (OK([], st)) args >>= fun(int_args, st') -> 
             match find_function ep f with
             | OK found_f -> 
-               (match eval_efun oc st' ep found_f f int_args with
-               | Error msg -> Error msg
-               | OK (None, st'') -> Error (Format.sprintf "E: Function %s doesn't have a return value.\n" f)
-               | OK (Some ret, st'') -> OK (ret, st''))
+               eval_efun oc st' ep found_f f int_args >>= fun (ret_opt, st'') -> 
+                  OK (Option.get ret_opt, st'')
             | Error msg -> 
-               (match do_builtin oc st'.mem f int_args with
-               | Error msg -> Error msg
-               | OK None -> Error (Format.sprintf "E: Function %s doesn't have a return value.\n" f)
-               | OK (Some ret) -> OK (ret, st')))
+               do_builtin oc st'.mem f int_args >>= fun (ret_opt) -> 
+                  OK (Option.get ret_opt, st'))
    | Echar c -> OK (Char.code c, st)
          
 (* [eval_einstr oc st ins] évalue l'instruction [ins] en partant de l'état [st].
@@ -84,32 +73,26 @@ let rec eval_eexpr oc st (ep: eprog) (e : expr) : (int * int state) res =
 and eval_einstr oc (st: int state) (ep: eprog) (ins: instr) :
   (int option * int state) res =
    match ins with
-   | Iassign (s, e) ->
-      if Hashtbl.mem st.env s
-         then    
-            (let replace st s v =
-                  let new_env = Hashtbl.copy st.env 
-                     in Hashtbl.replace new_env s v; 
-                        {st with env = new_env} 
-               in match eval_eexpr oc st ep e with
-               | Error msg -> Error msg
-               | OK (v, st') -> OK (None, replace st' s v))
-         else
-            Error (Format.sprintf "E: Variable %s was not declared." s)
+   | Iassign (s, e) ->   
+      (let replace st s v =
+            let new_env = Hashtbl.copy st.env 
+               in Hashtbl.replace new_env s v; 
+                  {st with env = new_env} 
+         in match eval_eexpr oc st ep e with
+         | Error msg -> Error msg
+         | OK (v, st') -> OK (None, replace st' s v))
    | Iif (e, i1, i2) -> 
-      (eval_eexpr oc st ep e >>= fun (v, st') -> 
+      eval_eexpr oc st ep e >>= fun (v, st') -> 
          if v != 0 
-            then eval_einstr oc st' ep i1 >>= fun (r_opt, st'') -> 
-               OK (r_opt, remove_local_vars st' st'') 
-            else eval_einstr oc st' ep i2 >>= fun (r_opt, st'') -> 
-               OK (r_opt, remove_local_vars st' st''))
+            then eval_einstr oc st' ep i1 
+            else eval_einstr oc st' ep i2
    | Iwhile (e, i) -> 
       (eval_eexpr oc st ep e >>= fun (v, st') ->
          if v != 0 
             then eval_einstr oc st' ep i >>= fun (r_opt, next_st) -> 
                match r_opt with 
-               | None -> eval_einstr oc (remove_local_vars st' next_st) ep (Iwhile (e, i))
-               | Some r -> OK (r_opt, remove_local_vars st' next_st)
+               | None -> eval_einstr oc next_st ep (Iwhile (e, i))
+               | Some r -> OK (r_opt, next_st)
             else OK (None, st'))
    | Iblock i_list -> 
       (match i_list with
@@ -136,10 +119,7 @@ and eval_einstr oc (st: int state) (ep: eprog) (ins: instr) :
             | Error msg -> 
                (do_builtin oc st'.mem f int_args >>= fun _ -> 
                   OK (None, st')))
-   | Ideclare (_, s) -> 
-      let new_env = Hashtbl.copy st.env
-         in Hashtbl.add new_env s 0;
-         OK (None, {st with env = new_env})
+   | Ideclare (_, s) -> OK (None, st)
 
 (* [eval_efun oc st f fname vargs] évalue la fonction [f] (dont le nom est
    [fname]) en partant de l'état [st], avec les arguments [vargs].

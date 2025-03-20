@@ -61,9 +61,13 @@ let rec type_expr (typ_var : (string,typ) Hashtbl.t) (typ_fun : (string, typ lis
     (match Hashtbl.find_option typ_var s with
     | Some t when t != Tvoid -> OK t
     | _ -> Error (Format.sprintf "E: Expression %s type is not defined." s))
-  | Ecall (f, _) -> 
+  | Ecall (f, exprs) -> 
     match Hashtbl.find_option typ_fun f with
-    | Some (_, t) when t != Tvoid -> OK t
+    | Some (arg_types, ret_type) when ret_type != Tvoid ->
+        list_map_res (type_expr typ_var typ_fun) exprs >>= fun types ->
+          if types = arg_types
+            then OK ret_type
+            else Error (Format.sprintf "E: Unvalid argument types in function %s calling." f)
     | _ -> Error "E: Function return type is not defined."
 
 let are_compatible (t1 : typ) (t2 : typ) : bool =
@@ -102,56 +106,60 @@ let rec make_eexpr_of_ast (typ_var : (string,typ) Hashtbl.t) (typ_fun : (string,
   | Error msg -> Error (Format.sprintf "In make_eexpr_of_ast %s:\n%s"
                           (string_of_ast a) msg)
 
-let rec make_einstr_of_ast (typ_var : (string,typ) Hashtbl.t) (typ_fun : (string, typ list * typ) Hashtbl.t) (a: tree) : instr res =
+let rec make_einstr_of_ast (typ_var : (string,typ) Hashtbl.t) (typ_fun : (string, typ list * typ) Hashtbl.t) (a: tree) : (instr * (string,typ) Hashtbl.t)res =
   let res =
     match a with
     (* TODO *)
+    (* typ_var a été ajouté à la valeur de retour de cette fonction
+    pour permettre la gestion des variables locales dans les if et while. *)
     | Node(Tassign, [StringLeaf s; e]) -> 
         make_eexpr_of_ast typ_var typ_fun e >>= fun expr ->
         type_expr typ_var typ_fun expr >>= fun te ->
         type_expr typ_var typ_fun (Evar s) >>= fun ts ->
         if are_compatible te ts 
-          then OK (Iassign (s, expr))
+          then OK (Iassign (s, expr), typ_var)
           else Error (Format.sprintf "E: Types %s and %s are not compatible." (string_of_typ ts) (string_of_typ te))
-    | Node(Tif, [e; i1; i2]) -> 
-        make_eexpr_of_ast typ_var typ_fun e >>= fun expr ->
-        type_expr typ_var typ_fun expr >>= fun te ->
-        make_einstr_of_ast typ_var typ_fun i1 >>= fun instr1 ->
-        make_einstr_of_ast typ_var typ_fun i2 >>= fun instr2 ->
-        OK (Iif (expr, instr1, instr2))
-    | Node(Twhile, [e; i]) -> 
-        make_eexpr_of_ast typ_var typ_fun e >>= fun expr ->
-        type_expr typ_var typ_fun expr >>= fun te ->
-        make_einstr_of_ast typ_var typ_fun i >>= fun instr ->
-        OK (Iwhile (expr, instr))
-    | Node(Tblock, i_list) ->
-        list_map_res (make_einstr_of_ast typ_var typ_fun) i_list >>= fun instr_list -> 
-        OK (Iblock instr_list)
-    | Node(Treturn, [e]) -> 
-        make_eexpr_of_ast typ_var typ_fun e >>= fun expr ->
-        type_expr typ_var typ_fun expr >>= fun te ->
-        OK (Ireturn expr)        
-    | Node(Tcall, [StringLeaf f; Node(Targs, args)]) -> 
-        list_map_res (make_eexpr_of_ast typ_var typ_fun) args >>= fun exprs ->
-        list_map_res (type_expr typ_var typ_fun) exprs >>= fun types ->
-        (match Hashtbl.find_option typ_fun f with
-        | None -> Error (Format.sprintf "E: Unknown argument types of function %s." f) 
-        | Some (arg_types, ret_type) -> 
-          if types = arg_types
-            then OK (Icall (f, exprs))
-            else Error (Format.sprintf "E: Unvalid argument types in function %s calling." f))
-    | Node (Tdeclare, [TypeLeaf t; StringLeaf s]) ->
-        if t != Tvoid 
-          then 
-            if Hashtbl.mem typ_var s 
+          | Node(Tif, [e; i1; i2]) -> 
+            make_eexpr_of_ast typ_var typ_fun e >>= fun expr ->
+            make_einstr_of_ast typ_var typ_fun i1 >>= fun (instr1, new_typ_var) ->
+            make_einstr_of_ast typ_var typ_fun i2 >>= fun (instr2, new_typ_var) ->
+            OK (Iif (expr, instr1, instr2), typ_var)
+        | Node(Twhile, [e; i]) -> 
+            make_eexpr_of_ast typ_var typ_fun e >>= fun expr ->
+            make_einstr_of_ast typ_var typ_fun i >>= fun (instr, new_typ_var) ->
+            OK (Iwhile (expr, instr), typ_var)
+        | Node(Tblock, i_list) ->
+            List.fold_left (fun acc i ->
+              acc >>= fun (cur_i_list, cur_typ_var) ->
+              make_einstr_of_ast cur_typ_var typ_fun i >>= fun (instr, new_typ_var) ->
+              OK(cur_i_list@[instr], new_typ_var)) 
+                (OK([], typ_var)) i_list >>= fun (instr_list, new_typ_var) ->
+                  OK(Iblock(instr_list), new_typ_var)
+        | Node(Treturn, [e]) -> 
+            make_eexpr_of_ast typ_var typ_fun e >>= fun expr ->
+            OK (Ireturn expr, typ_var)        
+        | Node(Tcall, [StringLeaf f; Node(Targs, args)]) -> 
+            (list_map_res (make_eexpr_of_ast typ_var typ_fun) args >>= fun exprs ->
+            list_map_res (type_expr typ_var typ_fun) exprs >>= fun types ->
+            (match Hashtbl.find_option typ_fun f with
+            | None -> Error (Format.sprintf "E: Unknown argument types of function %s." f) 
+            | Some (arg_types, ret_type) -> 
+              if types = arg_types
+                then OK (Icall (f, exprs), typ_var)
+                else Error (Format.sprintf "E: Unvalid argument types in function %s calling." f)))
+        | Node (Tdeclare, [TypeLeaf t; StringLeaf s]) ->
+            (if t != Tvoid 
               then 
-                Error (Format.sprintf "E: Variable %s already declared." s)
+                (if Hashtbl.mem typ_var s 
+                  then 
+                    Error (Format.sprintf "E: Variable %s already declared." s)
+                  else 
+                    let new_typ_var = Hashtbl.copy typ_var
+                      in Hashtbl.add new_typ_var s t;
+                      OK (Ideclare (t ,s), new_typ_var))
               else 
-                (Hashtbl.add typ_var s t;
-                OK (Ideclare (t ,s)))
-          else 
-            Error (Format.sprintf "E: Can not declare void variable.")
-    | NullLeaf -> OK (Iblock [])
+                Error (Format.sprintf "E: Can not declare void variable."))
+    | NullLeaf -> OK (Iblock [], typ_var)
     | _ -> Error (Printf.sprintf "Unacceptable ast in make_einstr_of_ast %s"
                     (string_of_ast a))
   in
@@ -174,7 +182,7 @@ let make_fundef_of_ast (typ_fun : (string, typ list * typ) Hashtbl.t) (a: tree) 
       let typ_var = Hashtbl.of_list fargs
         in let arg_types = List.map (fun (arg, typ) -> typ) fargs
           in Hashtbl.add typ_fun fname (arg_types, t);
-          make_einstr_of_ast typ_var typ_fun fbody >>= fun fbody ->
+          make_einstr_of_ast typ_var typ_fun fbody >>= fun (fbody, _) ->
           OK (fname, {funargs = fargs; funbody = fbody; funvartyp = typ_var; funrettype = t})
   | _ ->
     Error (Printf.sprintf "make_fundef_of_ast: Expected a Tfundef, got %s."

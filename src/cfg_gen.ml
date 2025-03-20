@@ -74,7 +74,9 @@ let rec cfg_node_of_einstr (next: int) (cfg : (int, cfg_node) Hashtbl.t)
     list_map_res cfg_expr_of_eexpr args >>= fun es ->
     Hashtbl.replace cfg next (Ccall (f, es, succ));
     OK (next, next + 1)
-  | Elang.Ideclare (_, s) -> cfg_node_of_einstr next cfg succ (Elang.Iassign (s, Eint 0))
+  | Elang.Ideclare (_, _) -> 
+    Hashtbl.replace cfg next (Cnop succ);
+    OK (next, next + 1)
 
 (* Some nodes may be unreachable after the CFG is entirely generated. The
    [reachable_nodes n cfg] constructs the set of node identifiers that are
