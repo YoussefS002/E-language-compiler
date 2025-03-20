@@ -6,6 +6,17 @@ type mem_access_size =
   | MAS4
   | MAS8
 
+type typ =
+  | Tint 
+  | Tchar
+  | Tvoid
+
+let string_of_typ t =
+  match t with
+  | Tint -> "int"
+  | Tchar -> "char"
+  | Tvoid -> "void"
+
 let string_of_mem_access_size mas =
   match mas with
   | MAS1 -> "{1}"

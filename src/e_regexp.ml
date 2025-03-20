@@ -70,7 +70,7 @@ let list_regexp : (regexp * (string -> token option)) list =
     (keyword_regexp "int", fun _ -> Some (SYM_INT));
     (* begin TODO *)
     (keyword_regexp "void",       fun _ -> Some (SYM_VOID));
-    (keyword_regexp "void",       fun _ -> Some (SYM_CHAR));
+    (keyword_regexp "char",       fun _ -> Some (SYM_CHAR));
     (keyword_regexp "if",       fun _ -> Some (SYM_IF));
     (keyword_regexp "else",       fun _ -> Some (SYM_ELSE));
     (keyword_regexp "return",       fun _ -> Some (SYM_RETURN));
