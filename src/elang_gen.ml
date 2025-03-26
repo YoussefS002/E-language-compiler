@@ -54,9 +54,22 @@ let type_is_ptr =
   | Tptr ty -> true
   | _ -> false
 
-let remove_local_vars typ_var local_typ_var =
-  Hashtbl.filteri (fun s t -> Hashtbl.mem typ_var s) local_typ_var
-      
+let are_compatible (t1 : typ) (t2 : typ) : bool =
+  match t1, t2 with
+  | Tint, Tint
+  | Tchar, Tchar
+  | Tint, Tchar
+  | Tchar, Tint -> true
+  | Tptr ty1, Tptr ty2 when ty1 = ty2 -> true
+  | _ -> false
+
+let are_lists_compatible (l1 : typ list) (l2 : typ list) : bool =
+  if List.length l1 != List.length l2 
+    then false
+    else let comp = ref true
+      in List.iter2 (fun t1 t2 -> if not (are_compatible t1 t2) then comp := false) l1 l2;
+      !comp
+
 let rec type_expr (typ_var : (string,typ) Hashtbl.t) (typ_fun : (string, typ list * typ) Hashtbl.t) (e: expr) : typ res =
   match e with
   | Ebinop (b, e1, e2) -> 
@@ -139,14 +152,6 @@ let rec addr_taken_instr (i: instr) : string Set.t =
   | Ideclare _ -> Set.empty
   | Istore (e1, e2) -> Set.union (addr_taken_expr e1) (addr_taken_expr e2)
 
-let are_compatible (t1 : typ) (t2 : typ) : bool =
-  match t1, t2 with
-  | Tint, Tint
-  | Tchar, Tchar
-  | Tint, Tchar
-  | Tchar, Tint -> true
-  | Tptr ty1, Tptr ty2 when ty1 = ty2 -> true
-  | _ -> false
 
 (* [make_eexpr_of_ast a] builds an expression corresponding to a tree [a]. If
    the tree is not well-formed, fails with an [Error] message. *)
@@ -166,7 +171,13 @@ let rec make_eexpr_of_ast (typ_var : (string,typ) Hashtbl.t) (typ_fun : (string,
         OK (Eunop (Eneg, expr))
     | Node(Tcall, [StringLeaf f; Node(Targs, args)]) -> 
         list_map_res (make_eexpr_of_ast typ_var typ_fun) args >>= fun exprs -> 
-        OK (Ecall (f, exprs))
+        list_map_res (type_expr typ_var typ_fun) exprs >>= fun types ->
+        (match Hashtbl.find_option typ_fun f with
+        | None -> Error (Format.sprintf "Unknown argument types of function %s." f) 
+        | Some (arg_types, ret_type) -> 
+          if are_lists_compatible types arg_types
+            then OK (Ecall (f, exprs))
+            else Error (Format.sprintf "Unvalid argument types in function %s calling." f))
     | Node(Tmem, [MemopsLeaf memops; e]) -> 
         (match memops with
         | [] -> make_eexpr_of_ast typ_var typ_fun e
@@ -227,7 +238,7 @@ let rec make_einstr_of_ast (typ_var : (string,typ) Hashtbl.t) (typ_fun : (string
         (match Hashtbl.find_option typ_fun f with
         | None -> Error (Format.sprintf "Unknown argument types of function %s." f) 
         | Some (arg_types, ret_type) -> 
-          if types = arg_types
+          if are_lists_compatible types arg_types
             then OK (Icall (f, exprs), typ_var)
             else Error (Format.sprintf "Unvalid argument types in function %s calling." f)))
     | Node (Tdeclare, [TypeLeaf t; StringLeaf s]) ->
