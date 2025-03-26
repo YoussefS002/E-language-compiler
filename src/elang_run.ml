@@ -40,7 +40,7 @@ let rec eval_eexpr oc st (ep: eprog) (typ_var : (string,typ) Hashtbl.t) (typ_fun
       | None -> OK (Hashtbl.find st.env s, st)
       | Some ofs -> 
          Mem.read_bytes_as_int st.mem (sp - ofs) (size_type (Hashtbl.find typ_var s)) >>= fun v ->
-         Printf.printf "Read %d in address %d\n" v (sp - ofs); OK (v, st)) 
+         OK (v, st)) 
    | Ebinop (b, ex, ey) -> 
       eval_eexpr oc st ep typ_var typ_fun inmem_var sp ex >>= fun (x, st') ->
       eval_eexpr oc st' ep typ_var typ_fun inmem_var sp ey >>= fun (y, st'') ->
@@ -72,12 +72,12 @@ let rec eval_eexpr oc st (ep: eprog) (typ_var : (string,typ) Hashtbl.t) (typ_fun
       eval_eexpr oc st ep typ_var typ_fun inmem_var sp e >>= fun (p, st') -> 
       type_expr typ_var typ_fun e >>= fun tp ->
       Mem.read_bytes_as_int st'.mem p (size_type tp) >>= fun v ->
-      Printf.printf "Read %d in memory address %d\n" v p; OK (v, st')
+      OK (v, st')
    | Eaddrof e -> 
       match e with
       | Evar s -> 
          (match Hashtbl.find_option inmem_var s with
-         | Some ofs -> Printf.printf "Address of %s evaluated : %d\n" s (sp - ofs); OK (sp - ofs, st)
+         | Some ofs -> OK (sp - ofs, st)
          | None -> Error (Format.sprintf "Address of %s not found" s))
       | Eload p -> eval_eexpr oc st ep typ_var typ_fun inmem_var sp p
       | _ -> Error "Type cannot have an address"
@@ -111,7 +111,7 @@ and eval_einstr oc (st: int state) (ep: eprog) (typ_var : (string,typ) Hashtbl.t
             | None -> OK (None, replace st' s v, typ_var)
             | Some ofs -> 
                Mem.write_bytes st'.mem (sp - ofs) (split_bytes (size_type (Hashtbl.find typ_var s)) v) >>= fun _ ->
-               Printf.printf "Assigning %d in address %d\n" v (sp - ofs); OK (None, st', typ_var))
+               OK (None, st', typ_var))
    | Iif (e, i1, i2) -> 
       eval_eexpr oc st ep typ_var typ_fun inmem_var sp e >>= fun (v, st') -> 
          if v != 0 
@@ -165,11 +165,9 @@ and eval_einstr oc (st: int state) (ep: eprog) (typ_var : (string,typ) Hashtbl.t
       match tp with
       | Tptr t -> 
          Mem.write_bytes st''.mem addr (split_bytes (size_type t) v) >>= fun u ->
-         Printf.printf "Storing %d in address %d\n" v addr; OK (None, st'', typ_var)
+         OK (None, st'', typ_var)
       | _ -> 
-         Error "Storing in unvalid address"
-and print_hashtbl (tbl : (string, int) Hashtbl.t) sp =
-            Hashtbl.iter (fun key value -> Printf.printf "%s -> %d\n" key (sp - value)) tbl
+         Error "Storing in unvalid address"         
           
 (* [eval_efun oc st f fname vargs] évalue la fonction [f] (dont le nom est
    [fname]) en partant de l'état [st], avec les arguments [vargs].
@@ -188,8 +186,6 @@ and eval_efun oc (st: int state) ep ({funargs; funbody; funvartyp; funrettype; f
   let env = Hashtbl.create 17 in
   match List.iter2 (fun (a, t) v -> Hashtbl.replace env a v) funargs vargs with
   | () ->
-   Printf.printf "Stack size = %d\n" funstksz;
-   print_hashtbl funvarinmem (sp + funstksz);
    eval_einstr oc { st with env } ep funvartyp typ_fun funvarinmem (sp + funstksz) funbody >>= fun (v, st', _) ->
    OK (v, { st' with env = env_save })
   | exception Invalid_argument _ ->

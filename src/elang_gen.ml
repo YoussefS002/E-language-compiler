@@ -70,41 +70,41 @@ let rec type_expr (typ_var : (string,typ) Hashtbl.t) (typ_fun : (string, typ lis
               (match b with
               | Eadd -> OK (Tptr ty)
               | Esub -> OK (Tptr ty)
-              | _ -> Error "E: Binop is not defined on pointer.")
+              | _ -> Error "Binop is not defined on pointer.")
           | Tchar, Tptr ty            
           | Tint, Tptr ty -> 
               (match b with
               | Eadd -> OK (Tptr ty)
-              | _ -> Error "E: Binop is not defined on pointer.")
+              | _ -> Error "Binop is not defined on pointer.")
           | Tptr ty1, Tptr ty2 -> 
             if binop_is_cmp b
               then 
                 if ty1 = ty2 
                   then OK Tint
-                  else Error "E: Uncomparable pointers."  
+                  else Error "Uncomparable pointers."  
               else
-                Error "E: Binop is not defined on pointer type."
+                Error "Binop is not defined on pointer type."
           | _ -> OK (Tint) 
-        else Error "E: Binop is not defined on void type."
+        else Error "Binop is not defined on void type."
   | Eunop (u, e) -> 
       type_expr typ_var typ_fun e >>= fun t ->
         if t != Tvoid && t!= Tptr t
           then OK Tint
-          else Error "E: Unop is not defined on void or pointer type."
+          else Error "Unop is not defined on void or pointer type."
   | Eint i -> OK Tint
   | Echar c -> OK Tchar
   | Evar s -> 
     (match Hashtbl.find_option typ_var s with
     | Some t when t != Tvoid -> OK t
-    | _ -> Error (Format.sprintf "E: Expression %s type is not defined." s))
+    | _ -> Error (Format.sprintf "Expression %s type is not defined." s))
   | Ecall (f, exprs) -> 
     (match Hashtbl.find_option typ_fun f with
     | Some (arg_types, ret_type) when ret_type != Tvoid ->
         list_map_res (type_expr typ_var typ_fun) exprs >>= fun types ->
           if types = arg_types
             then OK ret_type
-            else Error (Format.sprintf "E: Unvalid argument types in function %s calling." f)
-    | _ -> Error "E: Function return type is not defined.")
+            else Error (Format.sprintf "Unvalid argument types in function %s calling." f)
+    | _ -> Error "Function return type is not defined.")
   | Eaddrof e -> 
     type_expr typ_var typ_fun e >>= fun t ->
     OK (Tptr t)
@@ -112,7 +112,7 @@ let rec type_expr (typ_var : (string,typ) Hashtbl.t) (typ_fun : (string, typ lis
     type_expr typ_var typ_fun e >>= fun t ->
       match t with
       | Tptr ty -> OK ty
-      | _ -> Error "E: Unvalid loading."
+      | _ -> Error "Unvalid loading."
     
 let rec addr_taken_expr (e: expr) : string Set.t =
   match e with
@@ -199,7 +199,7 @@ let rec make_einstr_of_ast (typ_var : (string,typ) Hashtbl.t) (typ_fun : (string
         | Evar s ->
             if are_compatible te tid
               then OK (Iassign (s, expr), typ_var)
-              else Error (Format.sprintf "E: Types %s and %s are not compatible." (string_of_typ tid) (string_of_typ te))
+              else Error (Format.sprintf "Types %s and %s are not compatible." (string_of_typ tid) (string_of_typ te))
         | Eload ptr_expr -> OK (Istore (ptr_expr, expr), typ_var)
         | _ -> Error (Printf.sprintf "Unacceptable ast in make_einstr_of_ast %s" (string_of_ast a)))
     | Node(Tif, [e; i1; i2]) -> 
@@ -225,23 +225,23 @@ let rec make_einstr_of_ast (typ_var : (string,typ) Hashtbl.t) (typ_fun : (string
         (list_map_res (make_eexpr_of_ast typ_var typ_fun) args >>= fun exprs ->
         list_map_res (type_expr typ_var typ_fun) exprs >>= fun types ->
         (match Hashtbl.find_option typ_fun f with
-        | None -> Error (Format.sprintf "E: Unknown argument types of function %s." f) 
+        | None -> Error (Format.sprintf "Unknown argument types of function %s." f) 
         | Some (arg_types, ret_type) -> 
           if types = arg_types
             then OK (Icall (f, exprs), typ_var)
-            else Error (Format.sprintf "E: Unvalid argument types in function %s calling." f)))
+            else Error (Format.sprintf "Unvalid argument types in function %s calling." f)))
     | Node (Tdeclare, [TypeLeaf t; StringLeaf s]) ->
         (if t != Tvoid 
           then 
             (if Hashtbl.mem typ_var s 
               then
-                Error (Format.sprintf "E: Variable %s already declared." s)
+                Error (Format.sprintf "Variable %s already declared." s)
               else
                 let new_typ_var = Hashtbl.copy typ_var
                   in Hashtbl.add new_typ_var s t;
                   OK (Ideclare (t ,s), new_typ_var))
           else 
-            Error (Format.sprintf "E: Can not declare void variable."))
+            Error (Format.sprintf "Can not declare void variable."))
     | NullLeaf -> OK (Iblock [], typ_var)
     | _ -> Error (Printf.sprintf "Unacceptable ast in make_einstr_of_ast %s"
                     (string_of_ast a))
@@ -298,7 +298,7 @@ let make_eprog_of_ast (a: tree) : eprog res =
     match List.assoc_opt fname f_list with
     | None -> OK (f_list@[fname, Gfun efun])
     | Some (Gfun dec) when dec.funbody = Iblock [] -> OK (List.remove_assoc fname f_list @ [fname, Gfun efun])
-    | _ -> Error (Format.sprintf "E: Multiple definitions of function %s." fname)) (OK []) l
+    | _ -> Error (Format.sprintf "Multiple definitions of function %s." fname)) (OK []) l
   | _ ->
     Error (Printf.sprintf "make_fundef_of_ast: Expected a Tlistglobdef, got %s."
              (string_of_ast a))

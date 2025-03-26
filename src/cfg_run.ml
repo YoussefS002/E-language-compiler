@@ -38,12 +38,12 @@ let rec eval_cfgexpr oc st cp (e: expr) : (int * int state) res =
             | OK found_f -> 
                (match eval_cfgfun oc st' cp f found_f int_args with
                | Error msg -> Error msg
-               | OK (None, st'') -> Error (Format.sprintf "CFG: Function %s doesn't have a return value.\n" f)
+               | OK (None, st'') -> Error (Format.sprintf "Function %s doesn't have a return value.\n" f)
                | OK (Some ret, st'') -> OK (ret, st''))
             | Error msg -> 
                (match do_builtin oc st.mem f int_args with
                | Error msg -> Error msg
-               | OK None -> Error (Format.sprintf "CFG: Function %s doesn't have a return value.\n" f)
+               | OK None -> Error (Format.sprintf "Function %s doesn't have a return value.\n" f)
                | OK (Some ret) -> OK (ret, st'))
 
 and eval_cfginstr oc st cp ht (n: int): (int * int state) res =
