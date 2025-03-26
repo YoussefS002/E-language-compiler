@@ -11,6 +11,8 @@ type expr =
   | Evar of string
   | Ecall of string * expr list
   | Echar of char
+  | Eaddrof of expr
+  | Eload of expr
 
 type instr =
   | Iassign of string * expr
@@ -20,12 +22,15 @@ type instr =
   | Ireturn of expr
   | Icall of string * expr list
   | Ideclare of typ * string
+  | Istore of expr * expr
 
 type efun = {
   funargs: ( string * typ ) list;
   funbody: instr;
   funvartyp : (string, typ) Hashtbl.t;
-  funrettype : typ
+  funrettype : typ;
+  funvarinmem : (string, int) Hashtbl.t;
+  funstksz : int
 }
 
 type eprog = efun prog

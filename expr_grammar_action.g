@@ -3,6 +3,7 @@ tokens SYM_LPARENTHESIS SYM_RPARENTHESIS SYM_LBRACE SYM_RBRACE
 tokens SYM_ASSIGN SYM_SEMICOLON SYM_RETURN SYM_IF SYM_WHILE SYM_ELSE SYM_COMMA
 tokens SYM_EQUALITY SYM_NOTEQ SYM_LT SYM_LEQ SYM_GT SYM_GEQ
 tokens SYM_INT SYM_CHAR SYM_VOID SYM_CHARACTER<char>
+tokens SYM_AMPERSAND
 non-terminals S INSTR<tree> INSTRS<tree list> LINSTRS ELSE EXPR FACTOR
 non-terminals LPARAMS REST_PARAMS
 non-terminals IDENTIFIER INTEGER
@@ -14,6 +15,7 @@ non-terminals EQ_EXPRS EQ_EXPR
 
 non-terminals AFTER_IDENTIFIER_INSTR AFTER_IDENTIFIER_FACTOR LARGS REST_ARGS
 non-terminals TYPE AFTER_IDENTIFIER_DEC CHARACTER FUN_INSTR
+non-terminals ASTERIKS MEM_OPS
 
 axiom S
 {
@@ -24,6 +26,7 @@ axiom S
   open BatBuffer
   open Batteries
   open Utils
+  open Prog
 
   type after_id =
   | Assign of tree
@@ -36,6 +39,14 @@ axiom S
       match List.rev other with
       | [] -> term
       | (high_tag, right_side)::rest -> Node(high_tag, [resolve_associativity term (List.rev rest); right_side])
+  
+  let rec make_type_ast (l : string list) : typ = 
+    match List.rev l with
+    | ["int"] -> Tint
+    | ["char"] -> Tchar
+    | ["void"] -> Tvoid
+    | "*"::rest -> Tptr (make_type_ast (List.rev rest))
+    | _ -> Tvoid
 }
 
 rules
@@ -44,9 +55,12 @@ FUNDEFS -> FUNDEF FUNDEFS { $1::$2 }
 FUNDEFS -> { [] }
 FUNDEF -> TYPE IDENTIFIER SYM_LPARENTHESIS LPARAMS SYM_RPARENTHESIS FUN_INSTR { Node(Tfundef, [Node(Tfuntype, [$1]); Node(Tfunname, [$2]); Node(Tfunargs, $4); Node(Tfunbody, [$6])]) }
 
-TYPE -> SYM_INT { TypeLeaf Tint }
-TYPE -> SYM_CHAR { TypeLeaf Tchar }
-TYPE -> SYM_VOID { TypeLeaf Tvoid }
+TYPE -> SYM_INT ASTERIKS { TypeLeaf (make_type_ast ("int"::$2)) }
+TYPE -> SYM_CHAR ASTERIKS { TypeLeaf (make_type_ast ("char"::$2)) }
+TYPE -> SYM_VOID ASTERIKS { TypeLeaf (make_type_ast ("void"::$2)) }
+
+ASTERIKS -> SYM_ASTERISK ASTERIKS { "*"::$2 }
+ASTERIKS -> { [] }
 
 LPARAMS -> TYPE IDENTIFIER REST_PARAMS { Node(Targ, [$1; $2])::$3 }
 LPARAMS -> { [] }
@@ -69,17 +83,17 @@ INSTRS -> { [] }
 INSTR -> SYM_IF SYM_LPARENTHESIS EXPR SYM_RPARENTHESIS SYM_LBRACE LINSTRS SYM_RBRACE ELSE { Node(Tif, [$3; $6; $8]) }
 INSTR -> SYM_WHILE SYM_LPARENTHESIS EXPR SYM_RPARENTHESIS INSTR { Node(Twhile, [$3; $5]) }
 INSTR -> SYM_RETURN EXPR SYM_SEMICOLON { Node(Treturn, [$2]) }
-INSTR -> IDENTIFIER AFTER_IDENTIFIER_INSTR SYM_SEMICOLON { 
-  match $2 with
-  | Assign exp -> Node(Tassign, [$1; exp]) 
-  | Funcall args -> Node(Tcall, [$1; Node(Targs, args)]) 
-  | _ -> $1 
+INSTR -> MEM_OPS IDENTIFIER AFTER_IDENTIFIER_INSTR SYM_SEMICOLON { 
+  match $3 with
+  | Assign exp -> Node(Tassign, [Node(Tmem, [MemopsLeaf $1; $2]); exp]) 
+  | Funcall args -> Node(Tmem, [MemopsLeaf $1; Node(Tcall, [$2; Node(Targs, args)])]) 
+  | _ -> $2
 }
 INSTR -> TYPE IDENTIFIER AFTER_IDENTIFIER_DEC SYM_SEMICOLON {
   match $3 with
   | Assign exp -> Node(Tblock, [Node(Tdeclare, [$1; $2]); Node(Tassign, [$2; exp])])
   | Nothing -> Node(Tdeclare, [$1; $2])
-  | _ -> $1
+  | _ -> $2
 }
 INSTR -> SYM_LBRACE LINSTRS SYM_RBRACE { $2 }
 
@@ -120,18 +134,22 @@ MUL_EXPRS -> SYM_MOD MUL_EXPR MUL_EXPRS { (Tmod, $2)::$3 }
 MUL_EXPRS -> { [] }
 
 FACTOR -> INTEGER { $1 }
-FACTOR -> IDENTIFIER AFTER_IDENTIFIER_FACTOR { 
-  match $2 with
-  | Funcall args -> Node(Tcall, [$1; Node(Targs, args)])
-  | Nothing -> $1
-  | _ -> $1
+FACTOR -> MEM_OPS IDENTIFIER AFTER_IDENTIFIER_FACTOR { 
+  match $3 with
+  | Funcall args -> Node(Tmem, [MemopsLeaf $1; Node(Tcall, [$2; Node(Targs, args)])])
+  | Nothing -> Node(Tmem, [MemopsLeaf $1; $2])
+  | _ -> Node(Tmem, [MemopsLeaf $1; $2])
 }
 FACTOR -> SYM_LPARENTHESIS EXPR SYM_RPARENTHESIS { $2 }
 FACTOR -> CHARACTER { $1 }
 
-IDENTIFIER -> SYM_IDENTIFIER {StringLeaf $1}
+IDENTIFIER -> SYM_IDENTIFIER { StringLeaf $1 }
 INTEGER -> SYM_INTEGER {IntLeaf $1}
 CHARACTER -> SYM_CHARACTER {CharLeaf $1}
+
+MEM_OPS -> SYM_AMPERSAND MEM_OPS { Ampersand::$2 }
+MEM_OPS -> SYM_ASTERISK MEM_OPS { Asterik::$2 }
+MEM_OPS -> { [] }
 
 AFTER_IDENTIFIER_FACTOR -> { Nothing }
 AFTER_IDENTIFIER_FACTOR -> SYM_LPARENTHESIS LARGS SYM_RPARENTHESIS { Funcall $2 }

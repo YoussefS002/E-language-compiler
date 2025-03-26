@@ -28,6 +28,8 @@ let rec dump_eexpr = function
   | Evar s -> Printf.sprintf "%s" s
   | Ecall (f, args) -> Printf.sprintf "%s(%s)" f (String.concat ", " (List.map dump_eexpr args))
   | Echar c -> Printf.sprintf "'%c'" c
+  | Eaddrof e -> Printf.sprintf "&%s" (dump_eexpr e)
+  | Eload e -> Printf.sprintf "*%s" (dump_eexpr e)
 let indent_size = 2
 let spaces n =
   range (indent_size*n) |> List.map (fun _ -> ' ') |> String.of_list
@@ -49,10 +51,11 @@ let rec dump_einstr_rec indent oc i =
     Format.fprintf oc "while (%s) %a\n"
                          (dump_eexpr cond) (dump_einstr_rec (indent)) i
   | Iblock(il) ->
+    print_spaces oc indent;
     Format.fprintf oc "{\n";
     List.iter (Format.fprintf oc "%a" (dump_einstr_rec (indent + 1))) il;
     print_spaces oc indent;
-    Format.fprintf oc "}";
+    Format.fprintf oc "}\n";
   | Ireturn(e) ->
     print_spaces oc indent;
     Format.fprintf oc "return %s;\n" (dump_eexpr e)
@@ -62,6 +65,9 @@ let rec dump_einstr_rec indent oc i =
   | Ideclare(t, s) ->
     print_spaces oc indent;
     Format.fprintf oc "%s %s;\n" (string_of_typ t) s
+  | Istore(p, e) ->
+    print_spaces oc indent;
+    Format.fprintf oc "*%s = %s;\n" (dump_eexpr p) (dump_eexpr e)
 
 let dump_einstr oc i = dump_einstr_rec 0 oc i
 

@@ -10,12 +10,14 @@ type typ =
   | Tint 
   | Tchar
   | Tvoid
+  | Tptr of typ
 
-let string_of_typ t =
+let rec string_of_typ t =
   match t with
   | Tint -> "int"
   | Tchar -> "char"
   | Tvoid -> "void"
+  | Tptr ty -> Format.sprintf "%s*" (string_of_typ ty)
 
 let string_of_mem_access_size mas =
   match mas with
@@ -78,3 +80,10 @@ let find_function (ep: 'a prog) fname : 'a res =
   match List.assoc_opt fname ep with
   | Some (Gfun f) -> OK f
   | _ -> Error (Format.sprintf "Unknown function %s\n" fname)
+
+let size_type (t: typ) : int =
+  match t with
+  | Tint -> 4
+  | Tchar -> 1
+  | Tptr _ -> 4
+  | Tvoid -> 0

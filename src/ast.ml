@@ -24,7 +24,6 @@ open Prog
 *)
 
 type tag = Tassign | Tif | Twhile | Tblock | Treturn | Tdeclare
-         | Tint | Tchar | Tvoid
          | Tadd | Tmul | Tdiv | Tmod | Txor | Tsub
          | Tclt | Tcgt | Tcle | Tcge | Tceq | Tne
          | Tneg
@@ -32,6 +31,10 @@ type tag = Tassign | Tif | Twhile | Tblock | Treturn | Tdeclare
          | Tfundef | Tfuntype | Tfunname | Tfunargs | Tfunbody | Tcall
          | Tassignvar (*never used*)
          | Targ | Targs
+         | Tmem
+
+type mem_op = | Asterik
+              | Ampersand
 
 type tree = | Node of tag * tree list
             | StringLeaf of string
@@ -39,9 +42,14 @@ type tree = | Node of tag * tree list
             | NullLeaf
             | CharLeaf of char
             | TypeLeaf of typ
+            | MemopsLeaf of mem_op list 
 let string_of_stringleaf = function
   | StringLeaf s -> s
   | _ -> failwith "string_of_stringleaf called on non-stringleaf nodes."
+
+let string_of_memop = function
+  | Asterik -> "*"
+  | Ampersand -> "&"
 
 type astfun = (string list * tree)
 type ast = (string * astfun) list
@@ -52,7 +60,6 @@ let string_of_tag = function
   | Twhile -> "Twhile"
   | Tblock -> "Tblock"
   | Treturn -> "Treturn"
-  | Tint -> "Tint"
   | Tadd -> "Tadd"
   | Tmul -> "Tmul"
   | Tdiv -> "Tdiv"
@@ -77,8 +84,7 @@ let string_of_tag = function
   | Targs -> "Targs"
   | Tdeclare -> "Tdeclare"
   | Tfuntype -> "Tfuntype"
-  | Tchar -> "Tchar"
-  | Tvoid -> "Tvoid"
+  | Tmem -> "Tmem"
 
 (* Écrit un fichier .dot qui correspond à un AST *)
 let rec draw_ast a next =
@@ -96,7 +102,6 @@ let rec draw_ast a next =
        ] @ List.map (fun n ->
         Format.sprintf "n%d -> n%d\n" next n
       )nodes)
-
   | StringLeaf s ->
     (next, next+1, [         Format.sprintf "n%d [label=\"%s\"]\n" next s])
   | IntLeaf i ->
@@ -107,6 +112,9 @@ let rec draw_ast a next =
     (next, next+1, [         Format.sprintf "n%d [label=\"%c\"]\n" next i])
   | TypeLeaf t ->
     (next, next+1, [         Format.sprintf "n%d [label=\"%s\"]\n" next (string_of_typ t)])
+  | MemopsLeaf memops ->
+    (next, next+1, [         Format.sprintf "n%d [label=\"%s\"]\n" next (String.concat "" (List.map string_of_memop memops))])
+
 let draw_ast_tree oc ast =
   let (_, _, s) = draw_ast ast 1 in
   let s = String.concat "" s in
@@ -122,3 +130,4 @@ let rec string_of_ast a =
   | CharLeaf i -> Format.sprintf "%c" i
   | NullLeaf -> "null"
   | TypeLeaf t -> string_of_typ t
+  | MemopsLeaf memops -> String.concat "" (List.map string_of_memop memops)

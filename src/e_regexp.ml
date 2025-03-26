@@ -90,6 +90,7 @@ let list_regexp : (regexp * (string -> token option)) list =
     (char_regexp ';',       fun _ -> Some (SYM_SEMICOLON));
     (char_regexp ',',       fun _ -> Some (SYM_COMMA));
     (char_regexp '=',       fun _ -> Some (SYM_ASSIGN));
+    (char_regexp '&',       fun _ -> Some (SYM_AMPERSAND));
     (Cat(char_regexp '=', char_regexp '='),       fun _ -> Some (SYM_EQUALITY));
     (Cat(char_regexp '!', char_regexp '='),       fun _ -> Some (SYM_NOTEQ));
     (char_regexp '<',       fun _ -> Some (SYM_LT));
