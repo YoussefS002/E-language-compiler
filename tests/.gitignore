@@ -16,5 +16,4 @@
 **/*.rtl
 **/*.s
 **/*.svg
-results.html
 __pycache__
